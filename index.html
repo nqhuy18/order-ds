@@ -55,7 +55,7 @@
 
   <!-- Cụm nút bấm -->
   <div class="btn-group">
-    <button class="push-btn" id="btn-submit" onclick="submitOrder()">🚀 LƯU LÊN SHEET</button>
+    <button class="push-btn" id="btn-submit" onclick="submitOrder()">🚀 CHỐT ĐƠN</button>
     <button class="history-btn" onclick="toggleHistoryLog()">📜 Lịch sử Order</button>
   </div>
 
@@ -71,7 +71,7 @@
 <script src="menus.js"></script>
 
 <script>
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwhyFVPnCcKqoUkyuiYRQ93MrR0Gorj_j-d2A66Q1pRLQEY1lTo_wxLVAJ8fgcUlEzsVA/exec";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz2IyZ3sPKAOdENSqThOMnmlX9nCALa1MwprqKrPAIU0KJ5Y-fGxPQcVO876ZlzU_gwqw/exec";
   const STORAGE_FAV_KEY = "ORDER_FAV_HISTORY";
   const STORAGE_LOG_KEY = "ORDER_DETAIL_LOGS";
 
@@ -247,12 +247,14 @@
     updateSummary();
   }
 
-  // 5. Hàm cập nhật bảng tóm tắt đọc cho thu ngân
+// 5. Hàm cập nhật bảng tóm tắt đọc cho thu ngân
   function updateSummary() {
     const currentShop = menuSelect.value;
     const currentMenuItems = MENUS[currentShop] || [];
     const grouped = {};
-    let totalMoney = 0;
+    
+    let originalTotal = 0; // Tổng giá gốc
+    let unroundedDiscountedTotal = 0; // Tổng giá sau giảm (chưa làm tròn) để báo thu ngân
 
     document.querySelectorAll(".member-row").forEach(row => {
       const itemSel = row.querySelector(".member-select");
@@ -262,7 +264,14 @@
       if (item && item.price > 0) {
         if (!grouped[item.name]) grouped[item.name] = { total: 0, notes: {} };
         grouped[item.name].total += 1;
-        totalMoney += item.price;
+        
+        // Cộng tổng giá gốc
+        originalTotal += item.price;
+        
+        // Tính tổng giá giảm 25% =nếu là TWB
+        if (currentShop === "TWB") {
+          unroundedDiscountedTotal += (item.price * 0.75);
+        }
 
         const noteVal = noteSel.value;
         if (noteVal) {
@@ -277,19 +286,27 @@
       return `• <b>${data.total}x</b> ${itemName}${noteSuffix}`;
     });
 
+    // Tạo chuỗi hiển thị HTML cho phần Tổng tiền
+    let totalHtml = `<b>Tổng cộng: ${originalTotal.toLocaleString()} đ</b>`;
+    if (currentShop === "TWB" && originalTotal > 0) {
+      totalHtml += ` <span style="font-size: 12px; color: #d32f2f;">(Sau giảm 25%: ${unroundedDiscountedTotal.toLocaleString()} đ)</span>`;
+    }
+
     document.getElementById("order-summary").innerHTML = summaryLines.length > 0
-      ? `${summaryLines.join("<br>")}<div style="margin-top:6px; padding-top:4px; border-top:1px dashed #4caf50;"><b>Tổng cộng: ${totalMoney.toLocaleString()} đ</b></div>` 
+      ? `${summaryLines.join("<br>")}<div style="margin-top:6px; padding-top:4px; border-top:1px dashed #4caf50;">${totalHtml}</div>` 
       : "Chưa chọn món nào";
   }
 
   // 6. Hàm đẩy dữ liệu lên Google Sheet & Lưu lịch sử
+// 6. Hàm đẩy dữ liệu lên Google Sheet & Lưu lịch sử
   async function submitOrder() {
     const currentShop = menuSelect.value;
     const currentMenuItems = MENUS[currentShop] || [];
     const orders = {};
     const selectedItemsForHistory = {};
     const logDetails = [];
-    let totalMoney = 0;
+    
+    let exactTotalMoney = 0; // Biến tính tổng hóa đơn KHÔNG làm tròn
 
     document.querySelectorAll(".member-row").forEach(row => {
       const itemSel = row.querySelector(".member-select");
@@ -298,9 +315,20 @@
       const item = currentMenuItems[itemSel.value];
 
       if (item && item.price > 0) {
-        orders[member] = item.price;
+        let exactPrice = item.price;
+        let roundedPrice = item.price;
+
+        // Nếu là TWB, tính giảm 25%
+        if (currentShop === "TWB") {
+          exactPrice = item.price * 0.75; // Giá gốc giảm 25% (KHÔNG làm tròn)
+          roundedPrice = Math.round(exactPrice / 1000) * 1000; // Giá làm tròn để chia tiền
+        }
+
+        orders[member] = roundedPrice; // Đẩy giá làm tròn vào phần từng người
         selectedItemsForHistory[member] = item.name;
-        totalMoney += item.price;
+        
+        exactTotalMoney += exactPrice; // Cộng giá KHÔNG làm tròn vào tổng hóa đơn
+        
         logDetails.push({
           member: member,
           itemName: item.name,
@@ -318,12 +346,13 @@
       date: dateVal,
       menu: currentShop,
       payer: payerVal,
-      orders: orders
+      orders: orders,
+      totalPrice: exactTotalMoney // GỬI TỔNG TIỀN KHÔNG LÀM TRÒN LÊN SCRIPT (Dòng 13)
     };
 
     const btn = document.getElementById("btn-submit");
     btn.disabled = true;
-    btn.textContent = "⏳ Đang lưu...";
+    btn.textContent = "⏳ Đang chốt đơn...";
 
     try {
       const res = await fetch(SCRIPT_URL, {
@@ -333,10 +362,8 @@
       });
       const result = await res.json();
       if (result.status === "ok") {
-        // 1. Lưu bộ đếm món yêu thích
         saveFavHistory(currentShop, selectedItemsForHistory);
         
-        // 2. Lưu nhật ký chi tiết đơn hàng để Double Check
         const now = new Date();
         const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
         saveOrderLog({
@@ -344,13 +371,12 @@
           time: timeStr,
           shop: currentShop,
           payer: payerVal,
-          total: totalMoney,
+          total: exactTotalMoney, // Lưu Lịch sử Order cũng hiển thị giá chưa làm tròn
           details: logDetails
         });
 
-        // 3. Cập nhật lại số lần uống trong dropdown nhưng GIỮ NGUYÊN các món đang chọn trên màn hình
         renderMemberMenu(true);
-        alert("✅ Đã lưu lên Google Sheet & ghi vào Lịch sử Order!");
+        alert("✅ Đã chốt đơn tự động vào Google Sheet thành công!");
       } else {
         alert("❌ Lỗi: " + result.msg);
       }
@@ -358,7 +384,7 @@
       alert("❌ Lỗi kết nối: " + e.toString());
     } finally {
       btn.disabled = false;
-      btn.textContent = "CHỐT ĐƠN";
+      btn.textContent = "🚀 CHỐT ĐƠN";
     }
   }
 

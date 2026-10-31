@@ -33,7 +33,7 @@ const MENUS = {
     // CÀ PHÊ Ý
     { name: "Espresso (S) - 35k", price: 35000 },
     { name: "Espresso (M) - 45k", price: 45000 },
-    { name: "Americano (S) - 39k", price: 39000 },
+    { name: "Americano (S) - 45k", price: 45000 },
     { name: "Americano (M) - 49k", price: 49000 },
     { name: "Americano (L) - 55k", price: 55000 },
     { name: "Cappuccino (S) - 55k", price: 55000 },
