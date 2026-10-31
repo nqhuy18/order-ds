@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Nhóm</title>
+  <style>
+    body { font-family: sans-serif; max-width: 550px; margin: 0 auto; padding: 15px; background: #f4f6f8; }
+    .card { background: white; padding: 12px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .summary { background: #e8f5e9; border: 1px solid #4caf50; position: sticky; top: 0; z-index: 10; }
+    .member-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #eee; gap: 10px; }
+    .member-row span { min-width: 110px; }
+    .member-select { flex: 1; max-width: 360px; }
+    select, input, button { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 14px; }
+    button.push-btn { width: 100%; background: #2e7d32; color: white; font-weight: bold; border: none; padding: 12px; font-size: 16px; cursor: pointer; }
+    button.push-btn:disabled { background: #9e9e9e; }
+  </style>
+</head>
+<body>
+
+  <!-- Khung tóm tắt số lượng để đọc cho thu ngân -->
+  <div class="card summary">
+    <strong>📋 Tổng hợp đọc cho thu ngân:</strong>
+    <div id="order-summary" style="margin-top: 5px; font-size: 14px; color: #1b5e20;">Chưa chọn món nào</div>
+  </div>
+
+  <!-- Thông tin chung -->
+  <div class="card">
+    <div style="display: flex; gap: 10px; margin-bottom: 8px;">
+      <div style="flex: 1;">
+        <label style="font-size: 12px; color: #555;">Ngày:</label>
+        <input type="text" id="date" style="width: 100%; box-sizing: border-box;" placeholder="DD/MM/YYYY">
+      </div>
+      <div style="flex: 1;">
+        <label style="font-size: 12px; color: #555;">Chọn quán (Thực đơn):</label>
+        <select id="menu-name" style="width: 100%; box-sizing: border-box;" onchange="renderMemberMenu()"></select>
+      </div>
+    </div>
+    <div>
+      <label style="font-size: 12px; color: #555;">Người chi tiền:</label>
+      <select id="payer" style="width: 100%; margin-top: 4px;"></select>
+    </div>
+  </div>
+
+  <!-- Danh sách chọn món từng người -->
+  <div class="card" id="member-list"></div>
+
+  <button class="push-btn" id="btn-submit" onclick="submitOrder()">🚀 LƯU LÊN GOOGLE SHEET</button>
+
+<!-- INCLUDE FILE MENU RIÊNG TẠI ĐÂY -->
+<script src="menus.js"></script>
+
+<script>
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwhyFVPnCcKqoUkyuiYRQ93MrR0Gorj_j-d2A66Q1pRLQEY1lTo_wxLVAJ8fgcUlEzsVA/exec";
+
+  // 1. Khởi tạo Ngày hiện tại
+  const today = new Date();
+  document.getElementById("date").value = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
+
+  // 2. Đổ danh sách quán từ file menus.js vào dropdown Chọn quán
+  const menuSelect = document.getElementById("menu-name");
+  Object.keys(MENUS).forEach(shopName => {
+    const opt = document.createElement("option");
+    opt.value = shopName;
+    opt.textContent = shopName;
+    menuSelect.appendChild(opt);
+  });
+
+  // 3. Đổ danh sách Người chi tiền (Mặc định chọn Quốc Huy)
+  const payerSelect = document.getElementById("payer");
+  MEMBERS.forEach(member => {
+    const opt = document.createElement("option");
+    opt.value = member;
+    opt.textContent = member;
+    if (member === "Quốc Huy") opt.selected = true;
+    payerSelect.appendChild(opt);
+  });
+
+  // 4. Hàm hiển thị danh sách món tương ứng khi đổi quán
+  function renderMemberMenu() {
+    const currentShop = menuSelect.value;
+    const currentMenuItems = MENUS[currentShop] || [];
+    const memberListDiv = document.getElementById("member-list");
+    memberListDiv.innerHTML = "";
+
+    const menuOptions = currentMenuItems.map((item, i) => 
+      `<option value="${i}">${item.name}</option>`
+    ).join("");
+
+    MEMBERS.forEach(member => {
+      const row = document.createElement("div");
+      row.className = "member-row";
+      row.innerHTML = `
+        <span><strong>${member}</strong></span>
+        <select class="member-select" data-member="${member}" onchange="updateSummary()">
+          ${menuOptions}
+        </select>
+      `;
+      memberListDiv.appendChild(row);
+    });
+
+    updateSummary();
+  }
+
+  // 5. Hàm cập nhật bảng tóm tắt đọc cho thu ngân
+  function updateSummary() {
+    const currentShop = menuSelect.value;
+    const currentMenuItems = MENUS[currentShop] || [];
+    const counts = {};
+    let totalMoney = 0;
+
+    document.querySelectorAll(".member-select").forEach(sel => {
+      const item = currentMenuItems[sel.value];
+      if (item && item.price > 0) {
+        counts[item.name] = (counts[item.name] || 0) + 1;
+        totalMoney += item.price;
+      }
+    });
+
+    const summaryText = Object.entries(counts).map(([name, qty]) => `• <b>${qty}x</b> ${name}`).join("<br>");
+    document.getElementById("order-summary").innerHTML = summaryText 
+      ? `${summaryText}<br><div style="margin-top:6px; padding-top:4px; border-top:1px dashed #4caf50;"><b>Tổng cộng: ${totalMoney.toLocaleString()} đ</b></div>` 
+      : "Chưa chọn món nào";
+  }
+
+  // 6. Hàm đẩy dữ liệu lên Google Sheet
+  async function submitOrder() {
+    const currentShop = menuSelect.value;
+    const currentMenuItems = MENUS[currentShop] || [];
+    const orders = {};
+
+    document.querySelectorAll(".member-select").forEach(sel => {
+      const item = currentMenuItems[sel.value];
+      if (item && item.price > 0) {
+        orders[sel.dataset.member] = item.price;
+      }
+    });
+
+    if (Object.keys(orders).length === 0) return alert("Chưa chọn món cho ai cả!");
+
+    const payload = {
+      date: document.getElementById("date").value,
+      menu: currentShop,
+      payer: document.getElementById("payer").value,
+      orders: orders
+    };
+
+    const btn = document.getElementById("btn-submit");
+    btn.disabled = true;
+    btn.textContent = "⏳ Đang đẩy lên Sheet...";
+
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      if (result.status === "ok") {
+        alert("✅ Đã điền tự động vào Google Sheet thành công!");
+      } else {
+        alert("❌ Lỗi: " + result.msg);
+      }
+    } catch (e) {
+      alert("❌ Lỗi kết nối: " + e.toString());
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "🚀 LƯU LÊN GOOGLE SHEET";
+    }
+  }
+
+  // Khởi chạy lần đầu khi mở trang
+  renderMemberMenu();
+</script>
+</body>
+</html>
