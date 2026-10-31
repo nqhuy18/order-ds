@@ -5,23 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Order Nhóm</title>
   <style>
-    body { font-family: sans-serif; max-width: 550px; margin: 0 auto; padding: 15px; background: #f4f6f8; }
+    body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 12px; background: #f4f6f8; }
     .card { background: white; padding: 12px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .summary { background: #e8f5e9; border: 1px solid #4caf50; position: sticky; top: 0; z-index: 10; }
-    .member-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #eee; gap: 10px; }
-    .member-row span { min-width: 110px; }
-    .member-select { flex: 1; max-width: 360px; }
-    select, input, button { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 14px; }
-    button.push-btn { width: 100%; background: #2e7d32; color: white; font-weight: bold; border: none; padding: 12px; font-size: 16px; cursor: pointer; }
+    .member-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+    .member-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .member-name { width: 95px; font-size: 14px; flex-shrink: 0; }
+    .member-select { flex: 1; min-width: 0; }
+    .note-select { width: 95px; flex-shrink: 0; background-color: #fafafa; }
+    select, input, button { padding: 7px; border-radius: 5px; border: 1px solid #ccc; font-size: 13px; }
+    .btn-group { display: flex; gap: 8px; margin-bottom: 10px; }
+    button.push-btn { flex: 2; background: #2e7d32; color: white; font-weight: bold; border: none; padding: 12px; font-size: 15px; cursor: pointer; }
     button.push-btn:disabled { background: #9e9e9e; }
+    button.history-btn { flex: 1; background: #1976d2; color: white; font-weight: bold; border: none; padding: 12px; font-size: 14px; cursor: pointer; }
+    button.reset-btn { background: #f5f5f5; color: #333; border: 1px solid #ccc; padding: 4px 8px; font-size: 12px; cursor: pointer; float: right; }
+    .log-item { border-bottom: 1px dashed #ccc; padding: 8px 0; font-size: 13px; }
+    .log-item:last-child { border-bottom: none; }
   </style>
 </head>
 <body>
 
   <!-- Khung tóm tắt số lượng để đọc cho thu ngân -->
   <div class="card summary">
-    <strong>📋 Tổng hợp đọc cho thu ngân:</strong>
-    <div id="order-summary" style="margin-top: 5px; font-size: 14px; color: #1b5e20;">Chưa chọn món nào</div>
+    <button class="reset-btn" onclick="renderMemberMenu()">🔄 Làm mới</button>
+    <strong>📋 Tổng hợp hóa đơn:</strong>
+    <div id="order-summary" style="margin-top: 5px; font-size: 14px; color: #1b5e20; line-height: 1.5;">Chưa chọn món nào</div>
   </div>
 
   <!-- Thông tin chung -->
@@ -45,19 +53,43 @@
   <!-- Danh sách chọn món từng người -->
   <div class="card" id="member-list"></div>
 
-  <button class="push-btn" id="btn-submit" onclick="submitOrder()">🚀 LƯU LÊN GOOGLE SHEET</button>
+  <!-- Cụm nút bấm -->
+  <div class="btn-group">
+    <button class="push-btn" id="btn-submit" onclick="submitOrder()">🚀 LƯU LÊN SHEET</button>
+    <button class="history-btn" onclick="toggleHistoryLog()">📜 Lịch sử Order</button>
+  </div>
 
-<!-- INCLUDE FILE MENU RIÊNG TẠI ĐÂY -->
+  <!-- Khung hiển thị lịch sử các lần Order để Double Check (Mặc định ẩn) -->
+  <div class="card" id="history-log-box" style="display: none; background: #fffde7; border: 1px solid #fbc02d;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <strong>🕒 Lịch sử các đơn đã Push gần đây:</strong>
+      <button onclick="clearOrderLogs()" style="font-size: 11px; padding: 3px 6px; color: #d32f2f;">Xóa lịch sử</button>
+    </div>
+    <div id="history-log-content"></div>
+  </div>
+
 <script src="menus.js"></script>
 
 <script>
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwhyFVPnCcKqoUkyuiYRQ93MrR0Gorj_j-d2A66Q1pRLQEY1lTo_wxLVAJ8fgcUlEzsVA/exec";
+  const STORAGE_FAV_KEY = "ORDER_FAV_HISTORY";
+  const STORAGE_LOG_KEY = "ORDER_DETAIL_LOGS";
+
+  const NOTE_OPTIONS = [
+    { label: "---", value: "" },
+    { label: "Đá", value: "" },
+    { label: "Ít đá", value: "ít đá" },
+    { label: "Nóng", value: "nóng" },
+    { label: "Ít ngọt", value: "ít ngọt" },
+    { label: "Ít đá, ít ngọt", value: "ít đá, ít ngọt" },
+    { label: "Không đá", value: "không đá" }
+  ];
 
   // 1. Khởi tạo Ngày hiện tại
   const today = new Date();
   document.getElementById("date").value = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
 
-  // 2. Đổ danh sách quán từ file menus.js vào dropdown Chọn quán
+  // 2. Đổ danh sách quán
   const menuSelect = document.getElementById("menu-name");
   Object.keys(MENUS).forEach(shopName => {
     const opt = document.createElement("option");
@@ -66,7 +98,7 @@
     menuSelect.appendChild(opt);
   });
 
-  // 3. Đổ danh sách Người chi tiền (Mặc định chọn Quốc Huy)
+  // 3. Đổ danh sách Người chi tiền
   const payerSelect = document.getElementById("payer");
   MEMBERS.forEach(member => {
     const opt = document.createElement("option");
@@ -76,27 +108,140 @@
     payerSelect.appendChild(opt);
   });
 
-  // 4. Hàm hiển thị danh sách món tương ứng khi đổi quán
-  function renderMemberMenu() {
+  // --- QUẢN LÝ BỘ ĐẾM MÓN YÊU THÍCH (COUNTER) ---
+  function getFavHistory() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_FAV_KEY)) || {}; } 
+    catch { return {}; }
+  }
+
+  function saveFavHistory(shop, selectedItemsByMember) {
+    const history = getFavHistory();
+    if (!history[shop]) history[shop] = {};
+    for (const [member, itemName] of Object.entries(selectedItemsByMember)) {
+      if (!history[shop][member]) history[shop][member] = {};
+      history[shop][member][itemName] = (history[shop][member][itemName] || 0) + 1;
+    }
+    localStorage.setItem(STORAGE_FAV_KEY, JSON.stringify(history));
+  }
+
+  function getTopFavorites(shop, member, currentMenuItems) {
+    const history = getFavHistory();
+    const memberHistory = (history[shop] && history[shop][member]) ? history[shop][member] : {};
+    return Object.entries(memberHistory)
+      .map(([itemName, count]) => ({
+        itemName, count, menuIndex: currentMenuItems.findIndex(item => item.name === itemName)
+      }))
+      .filter(entry => entry.menuIndex > 0)
+      .sort((a, b) => b.count - a.count);
+  }
+
+  // --- QUẢN LÝ LỊCH SỬ ĐƠN HÀNG ĐỂ DOUBLE CHECK ---
+  function getOrderLogs() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_LOG_KEY)) || []; } 
+    catch { return []; }
+  }
+
+  function saveOrderLog(logEntry) {
+    const logs = getOrderLogs();
+    logs.unshift(logEntry); // Đưa đơn mới nhất lên đầu
+    if (logs.length > 20) logs.pop(); // Giữ tối đa 20 đơn gần nhất
+    localStorage.setItem(STORAGE_LOG_KEY, JSON.stringify(logs));
+    renderHistoryLogs();
+  }
+
+  function renderHistoryLogs() {
+    const logs = getOrderLogs();
+    const container = document.getElementById("history-log-content");
+    if (logs.length === 0) {
+      container.innerHTML = "<i>Chưa có lịch sử đơn hàng nào.</i>";
+      return;
+    }
+    container.innerHTML = logs.map(log => {
+      const detailsHtml = log.details.map(d => 
+        `• <b>${d.member}</b>: ${d.itemName} ${d.note ? `<span style="color:#d32f2f;">(${d.note})</span>` : ""}`
+      ).join("<br>");
+      return `
+        <div class="log-item">
+          <div style="color:#1565c0; font-weight:bold; margin-bottom:4px;">
+            📅 ${log.date} (${log.time}) | Quán: ${log.shop} | Chi: ${log.payer} | Tổng: ${log.total.toLocaleString()}đ
+          </div>
+          <div style="padding-left: 8px; line-height: 1.4;">${detailsHtml}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function toggleHistoryLog() {
+    const box = document.getElementById("history-log-box");
+    box.style.display = box.style.display === "none" ? "block" : "none";
+    if (box.style.display === "block") {
+      renderHistoryLogs();
+      box.scrollIntoView({ behavior: "smooth" });
+    }
+  }
+
+  function clearOrderLogs() {
+    if (confirm("Bạn có chắc muốn xóa danh sách lịch sử đơn hàng? (Bộ đếm món yêu thích vẫn được giữ nguyên)")) {
+      localStorage.removeItem(STORAGE_LOG_KEY);
+      renderHistoryLogs();
+    }
+  }
+
+  // 4. Hàm hiển thị danh sách chọn món (Có hỗ trợ giữ lại lựa chọn hiện tại)
+  function renderMemberMenu(keepSelection = false) {
     const currentShop = menuSelect.value;
     const currentMenuItems = MENUS[currentShop] || [];
     const memberListDiv = document.getElementById("member-list");
-    memberListDiv.innerHTML = "";
 
-    const menuOptions = currentMenuItems.map((item, i) => 
-      `<option value="${i}">${item.name}</option>`
-    ).join("");
+    // Lưu tạm lựa chọn đang có trên màn hình nếu keepSelection = true
+    const savedSelections = {};
+    if (keepSelection) {
+      document.querySelectorAll(".member-row").forEach(row => {
+        const m = row.querySelector(".member-select").dataset.member;
+        savedSelections[m] = {
+          itemIdx: row.querySelector(".member-select").value,
+          noteVal: row.querySelector(".note-select").value
+        };
+      });
+    }
+
+    memberListDiv.innerHTML = "";
+    const noteOptionsHtml = NOTE_OPTIONS.map(n => `<option value="${n.value}">${n.label}</option>`).join("");
 
     MEMBERS.forEach(member => {
+      const favorites = getTopFavorites(currentShop, member, currentMenuItems);
+      let favOptGroup = "";
+      if (favorites.length > 0) {
+        const favOptions = favorites.slice(0, 3).map(fav => 
+          `<option value="${fav.menuIndex}">⭐ ${fav.itemName} (${fav.count} lần)</option>`
+        ).join("");
+        favOptGroup = `<optgroup label="🔥 Món hay uống nhất">${favOptions}</optgroup>`;
+      }
+
+      const allOptions = currentMenuItems.slice(1).map((item, i) => 
+        `<option value="${i + 1}">${item.name}</option>`
+      ).join("");
+
       const row = document.createElement("div");
       row.className = "member-row";
       row.innerHTML = `
-        <span><strong>${member}</strong></span>
+        <span class="member-name"><strong>${member}</strong></span>
         <select class="member-select" data-member="${member}" onchange="updateSummary()">
-          ${menuOptions}
+          <option value="0">${currentMenuItems[0]?.name || "-- Không gọi --"}</option>
+          ${favOptGroup}
+          <optgroup label="📋 Toàn bộ Menu">${allOptions}</optgroup>
+        </select>
+        <select class="note-select" data-member="${member}" onchange="updateSummary()">
+          ${noteOptionsHtml}
         </select>
       `;
       memberListDiv.appendChild(row);
+
+      // Khôi phục lại món vừa chọn sau khi cập nhật bộ đếm
+      if (keepSelection && savedSelections[member]) {
+        row.querySelector(".member-select").value = savedSelections[member].itemIdx;
+        row.querySelector(".note-select").value = savedSelections[member].noteVal;
+      }
     });
 
     updateSummary();
@@ -106,48 +251,79 @@
   function updateSummary() {
     const currentShop = menuSelect.value;
     const currentMenuItems = MENUS[currentShop] || [];
-    const counts = {};
+    const grouped = {};
     let totalMoney = 0;
 
-    document.querySelectorAll(".member-select").forEach(sel => {
-      const item = currentMenuItems[sel.value];
+    document.querySelectorAll(".member-row").forEach(row => {
+      const itemSel = row.querySelector(".member-select");
+      const noteSel = row.querySelector(".note-select");
+      const item = currentMenuItems[itemSel.value];
+
       if (item && item.price > 0) {
-        counts[item.name] = (counts[item.name] || 0) + 1;
+        if (!grouped[item.name]) grouped[item.name] = { total: 0, notes: {} };
+        grouped[item.name].total += 1;
         totalMoney += item.price;
+
+        const noteVal = noteSel.value;
+        if (noteVal) {
+          grouped[item.name].notes[noteVal] = (grouped[item.name].notes[noteVal] || 0) + 1;
+        }
       }
     });
 
-    const summaryText = Object.entries(counts).map(([name, qty]) => `• <b>${qty}x</b> ${name}`).join("<br>");
-    document.getElementById("order-summary").innerHTML = summaryText 
-      ? `${summaryText}<br><div style="margin-top:6px; padding-top:4px; border-top:1px dashed #4caf50;"><b>Tổng cộng: ${totalMoney.toLocaleString()} đ</b></div>` 
+    const summaryLines = Object.entries(grouped).map(([itemName, data]) => {
+      const noteDetails = Object.entries(data.notes).map(([noteText, count]) => `${count} ${noteText}`).join(", ");
+      const noteSuffix = noteDetails ? ` <span style="color:#d32f2f; font-weight:bold;">(${noteDetails})</span>` : "";
+      return `• <b>${data.total}x</b> ${itemName}${noteSuffix}`;
+    });
+
+    document.getElementById("order-summary").innerHTML = summaryLines.length > 0
+      ? `${summaryLines.join("<br>")}<div style="margin-top:6px; padding-top:4px; border-top:1px dashed #4caf50;"><b>Tổng cộng: ${totalMoney.toLocaleString()} đ</b></div>` 
       : "Chưa chọn món nào";
   }
 
-  // 6. Hàm đẩy dữ liệu lên Google Sheet
+  // 6. Hàm đẩy dữ liệu lên Google Sheet & Lưu lịch sử
   async function submitOrder() {
     const currentShop = menuSelect.value;
     const currentMenuItems = MENUS[currentShop] || [];
     const orders = {};
+    const selectedItemsForHistory = {};
+    const logDetails = [];
+    let totalMoney = 0;
 
-    document.querySelectorAll(".member-select").forEach(sel => {
-      const item = currentMenuItems[sel.value];
+    document.querySelectorAll(".member-row").forEach(row => {
+      const itemSel = row.querySelector(".member-select");
+      const noteSel = row.querySelector(".note-select");
+      const member = itemSel.dataset.member;
+      const item = currentMenuItems[itemSel.value];
+
       if (item && item.price > 0) {
-        orders[sel.dataset.member] = item.price;
+        orders[member] = item.price;
+        selectedItemsForHistory[member] = item.name;
+        totalMoney += item.price;
+        logDetails.push({
+          member: member,
+          itemName: item.name,
+          note: noteSel.value
+        });
       }
     });
 
     if (Object.keys(orders).length === 0) return alert("Chưa chọn món cho ai cả!");
 
+    const dateVal = document.getElementById("date").value;
+    const payerVal = document.getElementById("payer").value;
+
     const payload = {
-      date: document.getElementById("date").value,
+      date: dateVal,
       menu: currentShop,
-      payer: document.getElementById("payer").value,
+      payer: payerVal,
       orders: orders
     };
 
     const btn = document.getElementById("btn-submit");
     btn.disabled = true;
-    btn.textContent = "⏳ Đang đẩy lên Sheet...";
+    btn.textContent = "⏳ Đang lưu...";
 
     try {
       const res = await fetch(SCRIPT_URL, {
@@ -157,7 +333,24 @@
       });
       const result = await res.json();
       if (result.status === "ok") {
-        alert("✅ Đã điền tự động vào Google Sheet thành công!");
+        // 1. Lưu bộ đếm món yêu thích
+        saveFavHistory(currentShop, selectedItemsForHistory);
+        
+        // 2. Lưu nhật ký chi tiết đơn hàng để Double Check
+        const now = new Date();
+        const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        saveOrderLog({
+          date: dateVal,
+          time: timeStr,
+          shop: currentShop,
+          payer: payerVal,
+          total: totalMoney,
+          details: logDetails
+        });
+
+        // 3. Cập nhật lại số lần uống trong dropdown nhưng GIỮ NGUYÊN các món đang chọn trên màn hình
+        renderMemberMenu(true);
+        alert("✅ Đã lưu lên Google Sheet & ghi vào Lịch sử Order!");
       } else {
         alert("❌ Lỗi: " + result.msg);
       }
@@ -165,11 +358,10 @@
       alert("❌ Lỗi kết nối: " + e.toString());
     } finally {
       btn.disabled = false;
-      btn.textContent = "🚀 LƯU LÊN GOOGLE SHEET";
+      btn.textContent = "CHỐT ĐƠN";
     }
   }
 
-  // Khởi chạy lần đầu khi mở trang
   renderMemberMenu();
 </script>
 </body>
