@@ -7,11 +7,10 @@
   <style>
     body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 12px; background: #f4f6f8; }
     .card { background: white; padding: 12px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .summary { background: #e8f5e9; border: 1px solid #4caf50; position: sticky; top: 0; z-index: 10; }
+    .summary { background: #e8f5e9; border: 1px solid #4caf50; position: sticky; top: 0; z-index: 100; }
     .member-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
     .member-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
     .member-name { width: 95px; font-size: 14px; flex-shrink: 0; }
-    .member-select { flex: 1; min-width: 0; }
     .note-select { width: 95px; flex-shrink: 0; background-color: #fafafa; }
     select, input, button { padding: 7px; border-radius: 5px; border: 1px solid #ccc; font-size: 13px; }
     .btn-group { display: flex; gap: 8px; margin-bottom: 10px; }
@@ -21,13 +20,48 @@
     button.reset-btn { background: #f5f5f5; color: #333; border: 1px solid #ccc; padding: 4px 8px; font-size: 12px; cursor: pointer; float: right; }
     .log-item { border-bottom: 1px dashed #ccc; padding: 8px 0; font-size: 13px; }
     .log-item:last-child { border-bottom: none; }
+
+    /* Custom Dropdown tích hợp ô Search bên trong */
+    .custom-dropdown { position: relative; flex: 1; min-width: 0; user-select: none; }
+    .dropdown-btn {
+      padding: 7px 10px; border: 1px solid #ccc; border-radius: 5px; background: white;
+      font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+    }
+    .dropdown-btn span.text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dropdown-btn span.arrow { font-size: 10px; color: #666; margin-left: 6px; flex-shrink: 0; }
+    .dropdown-btn.active { border-color: #2e7d32; box-shadow: 0 0 0 2px rgba(46,125,50,0.15); }
+    
+    .dropdown-panel {
+      display: none; position: absolute; top: 100%; left: 0; right: 0; background: white;
+      border: 1px solid #bbb; border-radius: 6px; box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+      z-index: 50; max-height: 310px; overflow-y: auto; margin-top: 3px;
+    }
+    .dropdown-panel.open { display: block; }
+    
+    .group-header {
+      padding: 5px 10px; font-size: 11px; font-weight: bold; color: #444;
+      background: #f1f3f5; border-top: 1px solid #e9ecef; border-bottom: 1px solid #e9ecef;
+    }
+    .dropdown-item { padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f8f9fa; }
+    .dropdown-item:hover { background: #e8f5e9; }
+    .dropdown-item.selected { background: #c8e6c9; font-weight: bold; color: #1b5e20; }
+    
+    /* Ô tìm kiếm nằm ngay trên mục Toàn bộ Menu */
+    .inline-search-box {
+      padding: 6px 8px; background: #fff; position: sticky; top: 0; z-index: 5;
+      border-top: 1px solid #eee; border-bottom: 1px solid #ddd;
+    }
+    .inline-search-input {
+      width: 100%; box-sizing: border-box; padding: 6px 8px; font-size: 12px;
+      border: 1px solid #2e7d32; border-radius: 4px; outline: none; background: #f9fbe7;
+    }
   </style>
 </head>
 <body>
 
   <!-- Khung tóm tắt số lượng để đọc cho thu ngân -->
   <div class="card summary">
-    <button class="reset-btn" onclick="renderMemberMenu()">🔄 Làm mới</button>
+    <button class="reset-btn" onclick="resetForm()">🔄 Làm mới</button>
     <strong>📋 Tổng hợp hóa đơn:</strong>
     <div id="order-summary" style="margin-top: 5px; font-size: 14px; color: #1b5e20; line-height: 1.5;">Chưa chọn món nào</div>
   </div>
@@ -37,7 +71,7 @@
     <div style="display: flex; gap: 10px; margin-bottom: 8px;">
       <div style="flex: 1;">
         <label style="font-size: 12px; color: #555;">Ngày:</label>
-        <input type="text" id="date" style="width: 100%; box-sizing: border-box;" placeholder="DD/MM/YYYY">
+        <input type="text" id="date" style="width: 100%; box-sizing: border-box;" placeholder="DD/MM/YYYY" onchange="saveDraft()" oninput="saveDraft()">
       </div>
       <div style="flex: 1;">
         <label style="font-size: 12px; color: #555;">Chọn quán (Thực đơn):</label>
@@ -46,7 +80,7 @@
     </div>
     <div>
       <label style="font-size: 12px; color: #555;">Người chi tiền:</label>
-      <select id="payer" style="width: 100%; margin-top: 4px;"></select>
+      <select id="payer" style="width: 100%; margin-top: 4px;" onchange="saveDraft()"></select>
     </div>
   </div>
 
@@ -55,14 +89,14 @@
 
   <!-- Cụm nút bấm -->
   <div class="btn-group">
-    <button class="push-btn" id="btn-submit" onclick="submitOrder()">🚀 CHỐT ĐƠN</button>
-    <button class="history-btn" onclick="toggleHistoryLog()">📜 Lịch sử Order</button>
+    <button class="push-btn" id="btn-submit" onclick="submitOrder()"> CHỐT ĐƠN </button>
+    <button class="history-btn" onclick="toggleHistoryLog()"> Lịch sử Order</button>
   </div>
 
-  <!-- Khung hiển thị lịch sử các lần Order để Double Check (Mặc định ẩn) -->
+  <!-- Khung hiển thị lịch sử các lần Order để Double Check -->
   <div class="card" id="history-log-box" style="display: none; background: #fffde7; border: 1px solid #fbc02d;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-      <strong>🕒 Lịch sử các đơn đã Push gần đây:</strong>
+      <strong>🕒 Lịch sử các đơn đã chốt gần đây:</strong>
       <button onclick="clearOrderLogs()" style="font-size: 11px; padding: 3px 6px; color: #d32f2f;">Xóa lịch sử</button>
     </div>
     <div id="history-log-content"></div>
@@ -71,13 +105,14 @@
 <script src="menus.js"></script>
 
 <script>
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz2IyZ3sPKAOdENSqThOMnmlX9nCALa1MwprqKrPAIU0KJ5Y-fGxPQcVO876ZlzU_gwqw/exec";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMMVcNYsbWyfidNSzXllwBKVCL9DFMHr6Y8SAAcf14uScCisdq0fTE2qZFF-Qfntcf1Q/exec";
   const STORAGE_FAV_KEY = "ORDER_FAV_HISTORY";
   const STORAGE_LOG_KEY = "ORDER_DETAIL_LOGS";
+  const STORAGE_DRAFT_KEY = "ORDER_CURRENT_DRAFT";
 
   const NOTE_OPTIONS = [
     { label: "---", value: "" },
-    { label: "Đá", value: "" },
+    { label: "Đá", value: "đá" },
     { label: "Ít đá", value: "ít đá" },
     { label: "Nóng", value: "nóng" },
     { label: "Ít ngọt", value: "ít ngọt" },
@@ -85,11 +120,54 @@
     { label: "Không đá", value: "không đá" }
   ];
 
-  // 1. Khởi tạo Ngày hiện tại
-  const today = new Date();
-  document.getElementById("date").value = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
+  // Chuẩn hóa tiếng Việt không dấu
+  function removeAccents(str) {
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+  }
 
-  // 2. Đổ danh sách quán
+  // Thuật toán chấm điểm độ giống (Fuzzy Match) giữa từ khóa và tên món
+  function calcMatchScore(itemName, query) {
+    const normItem = removeAccents(itemName);
+    const normQuery = removeAccents(query.trim());
+    if (!normQuery) return 1;
+
+    // 1. Khớp chính xác cả cụm từ liền nhau
+    if (normItem.includes(normQuery)) {
+      return 100 + (normItem.startsWith(normQuery) ? 20 : 0);
+    }
+
+    // 2. Khớp theo từng từ rời rạc (VD: gõ "cf muoi" hoặc "tra dao")
+    const qWords = normQuery.split(/\s+/);
+    let matchedWords = 0;
+    let score = 0;
+
+    for (const qw of qWords) {
+      if (normItem.includes(qw)) {
+        matchedWords++;
+        score += 25;
+      } else {
+        // Kiểm tra viết tắt chữ cái đầu (VD: "bx" -> "bac xiu")
+        const initials = normItem.split(/[^a-z0-9]+/).map(w => w[0]).join("");
+        if (initials.includes(qw)) {
+          matchedWords++;
+          score += 20;
+        }
+      }
+    }
+    if (matchedWords === qWords.length) return score;
+    if (matchedWords > 0) return score * 0.6; // Khớp một phần từ khóa
+
+    // 3. Khớp thứ tự ký tự gần đúng (Subsequence)
+    let qIdx = 0;
+    for (let i = 0; i < normItem.length && qIdx < normQuery.length; i++) {
+      if (normItem[i] === normQuery[qIdx]) qIdx++;
+    }
+    if (qIdx === normQuery.length) return 15;
+
+    return 0;
+  }
+
+  // 1. Đổ danh sách quán
   const menuSelect = document.getElementById("menu-name");
   Object.keys(MENUS).forEach(shopName => {
     const opt = document.createElement("option");
@@ -98,7 +176,7 @@
     menuSelect.appendChild(opt);
   });
 
-  // 3. Đổ danh sách Người chi tiền
+  // 2. Đổ danh sách Người chi tiền
   const payerSelect = document.getElementById("payer");
   MEMBERS.forEach(member => {
     const opt = document.createElement("option");
@@ -108,10 +186,51 @@
     payerSelect.appendChild(opt);
   });
 
-  // --- QUẢN LÝ BỘ ĐẾM MÓN YÊU THÍCH (COUNTER) ---
+  // Đóng dropdown khi click ra ngoài
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".custom-dropdown")) {
+      document.querySelectorAll(".dropdown-panel.open").forEach(p => {
+        p.classList.remove("open");
+        p.previousElementSibling.classList.remove("active");
+      });
+    }
+  });
+
+  // --- LƯU NHÁP TỰ ĐỘNG ---
+  function saveDraft() {
+    const draft = {
+      date: document.getElementById("date").value,
+      shop: document.getElementById("menu-name").value,
+      payer: document.getElementById("payer").value,
+      selections: {}
+    };
+
+    document.querySelectorAll(".member-row").forEach(row => {
+      const dd = row.querySelector(".custom-dropdown");
+      const member = dd.dataset.member;
+      const itemIdx = dd.dataset.value;
+      const noteVal = row.querySelector(".note-select").value;
+      
+      if (itemIdx !== "0" || noteVal !== "") {
+        draft.selections[member] = { itemIdx, noteVal };
+      }
+    });
+
+    localStorage.setItem(STORAGE_DRAFT_KEY, JSON.stringify(draft));
+  }
+
+  function resetForm() {
+    if (confirm("Bạn có chắc muốn xóa trắng toàn bộ đơn đang chọn?")) {
+      localStorage.removeItem(STORAGE_DRAFT_KEY);
+      const today = new Date();
+      document.getElementById("date").value = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
+      renderMemberMenu(false);
+    }
+  }
+
+  // --- QUẢN LÝ BỘ ĐẾM MÓN YÊU THÍCH & ĐỀ XUẤT MẶC ĐỊNH ---
   function getFavHistory() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_FAV_KEY)) || {}; } 
-    catch { return {}; }
+    try { return JSON.parse(localStorage.getItem(STORAGE_FAV_KEY)) || {}; } catch { return {}; }
   }
 
   function saveFavHistory(shop, selectedItemsByMember) {
@@ -124,7 +243,16 @@
     localStorage.setItem(STORAGE_FAV_KEY, JSON.stringify(history));
   }
 
-  function getTopFavorites(shop, member, currentMenuItems) {
+  function getDefaultFavIndices(shop, member, currentMenuItems) {
+    if (typeof DEFAULT_FAVORITES === "undefined" || !DEFAULT_FAVORITES[shop] || !DEFAULT_FAVORITES[shop][member]) {
+      return [];
+    }
+    return DEFAULT_FAVORITES[shop][member]
+      .map(name => currentMenuItems.findIndex(item => item.name === name))
+      .filter(idx => idx > 0);
+  }
+
+  function getLocalFavorites(shop, member, currentMenuItems) {
     const history = getFavHistory();
     const memberHistory = (history[shop] && history[shop][member]) ? history[shop][member] : {};
     return Object.entries(memberHistory)
@@ -135,16 +263,182 @@
       .sort((a, b) => b.count - a.count);
   }
 
-  // --- QUẢN LÝ LỊCH SỬ ĐƠN HÀNG ĐỂ DOUBLE CHECK ---
+  // Xây dựng danh sách phẳng cho mục "Toàn bộ Menu" (Đưa món đề xuất ban đầu lên đầu tiên)
+  function buildAllMenuHtml(currentMenuItems, defaultIndices, selectedIdx, keyword = "") {
+    const kw = keyword.trim();
+    const defaultSet = new Set(defaultIndices);
+
+    // Nếu đang gõ tìm kiếm -> Chấm điểm và sắp xếp theo độ sát từ khóa
+    if (kw !== "") {
+      const scoredItems = [];
+      for (let i = 1; i < currentMenuItems.length; i++) {
+        const score = calcMatchScore(currentMenuItems[i].name, kw);
+        if (score > 0) {
+          scoredItems.push({ idx: i, name: currentMenuItems[i].name, score, isDef: defaultSet.has(i) });
+        }
+      }
+      scoredItems.sort((a, b) => b.score - a.score);
+
+      if (scoredItems.length === 0) {
+        return `<div class="group-header">❌ Không tìm thấy món phù hợp</div>`;
+      }
+
+      const itemsHtml = scoredItems.map(item => `
+        <div class="dropdown-item ${String(selectedIdx) === String(item.idx) ? 'selected' : ''}" onclick="selectDropdownItem(this, ${item.idx})">
+          ${item.isDef ? "📌 " : ""}${item.name}
+        </div>
+      `).join("");
+
+      return `<div class="group-header">🔍 Kết quả gần nhất (${scoredItems.length})</div>${itemsHtml}`;
+    }
+
+    // Nếu không gõ tìm kiếm -> Đưa các món DEFAULT_FAVORITES lên vị trí cao nhất của Toàn bộ Menu
+    const pinnedHtml = defaultIndices.map(idx => `
+      <div class="dropdown-item ${String(selectedIdx) === String(idx) ? 'selected' : ''}" onclick="selectDropdownItem(this, ${idx})">
+        📌 ${currentMenuItems[idx].name}
+      </div>
+    `).join("");
+
+    const othersHtml = [];
+    for (let i = 1; i < currentMenuItems.length; i++) {
+      if (!defaultSet.has(i)) {
+        othersHtml.push(`
+          <div class="dropdown-item ${String(selectedIdx) === String(i) ? 'selected' : ''}" onclick="selectDropdownItem(this, ${i})">
+            ${currentMenuItems[i].name}
+          </div>
+        `);
+      }
+    }
+
+    return `<div class="group-header">📋 Toàn bộ Menu</div>${pinnedHtml}${othersHtml.join("")}`;
+  }
+
+  // Tạo toàn bộ nội dung bên trong Dropdown của từng người
+  function buildDropdownPanelHtml(shop, member, currentMenuItems, selectedIdx) {
+    const localFavs = getLocalFavorites(shop, member, currentMenuItems);
+    const defaultIndices = getDefaultFavIndices(shop, member, currentMenuItems);
+
+    const zeroHtml = `
+      <div class="dropdown-item ${String(selectedIdx) === '0' ? 'selected' : ''}" onclick="selectDropdownItem(this, 0)">
+        ${currentMenuItems[0]?.name || "-- Không gọi --"}
+      </div>
+    `;
+
+    // Phần 1: Đề xuất trên cùng (Nếu có localStorage thì lấy Đặt nhiều nhất, chưa có thì lấy Đề xuất ban đầu)
+    let topFavHtml = "";
+    if (localFavs.length > 0) {
+      const items = localFavs.slice(0, 3).map(fav => `
+        <div class="dropdown-item ${String(selectedIdx) === String(fav.menuIndex) ? 'selected' : ''}" onclick="selectDropdownItem(this, ${fav.menuIndex})">
+          ⭐ ${fav.itemName} (${fav.count} lần)
+        </div>
+      `).join("");
+      topFavHtml = `<div class="group-header">Đặt nhiều nhất</div>${items}`;
+    } else if (defaultIndices.length > 0) {
+      const items = defaultIndices.map(idx => `
+        <div class="dropdown-item ${String(selectedIdx) === String(idx) ? 'selected' : ''}" onclick="selectDropdownItem(this, ${idx})">
+          ⭐ ${currentMenuItems[idx].name} (Đề xuất)
+        </div>
+      `).join("");
+      topFavHtml = `<div class="group-header">Món đề xuất</div>${items}`;
+    }
+
+    // Phần 2: Ô tìm kiếm nằm ngay trên mục Toàn bộ Menu
+    const searchBoxHtml = `
+      <div class="inline-search-box">
+        <input type="text" class="inline-search-input" placeholder="🔍 Gõ tên món để tìm nhanh..." oninput="onInlineSearch(this)" onclick="event.stopPropagation()">
+      </div>
+    `;
+
+    // Phần 3: Danh sách Toàn bộ Menu
+    const allMenuHtml = buildAllMenuHtml(currentMenuItems, defaultIndices, selectedIdx, "");
+
+    return `
+      ${zeroHtml}
+      <div class="top-fav-section">${topFavHtml}</div>
+      ${searchBoxHtml}
+      <div class="all-menu-section">${allMenuHtml}</div>
+    `;
+  }
+
+  // Mở / Đóng bảng chọn món
+  function toggleDropdown(btnEl) {
+    const panel = btnEl.nextElementSibling;
+    const isOpen = panel.classList.contains("open");
+
+    // Đóng tất cả các bảng khác đang mở
+    document.querySelectorAll(".dropdown-panel.open").forEach(p => {
+      p.classList.remove("open");
+      p.previousElementSibling.classList.remove("active");
+    });
+
+    if (!isOpen) {
+      panel.classList.add("open");
+      btnEl.classList.add("active");
+      const searchInput = panel.querySelector(".inline-search-input");
+      if (searchInput) {
+        searchInput.value = "";
+        onInlineSearch(searchInput); // Reset lại danh sách khi mở
+        setTimeout(() => searchInput.focus(), 50);
+      }
+    }
+  }
+
+  // Xử lý khi gõ vào ô tìm kiếm bên trong Dropdown
+  function onInlineSearch(inputEl) {
+    const dd = inputEl.closest(".custom-dropdown");
+    const member = dd.dataset.member;
+    const selectedIdx = dd.dataset.value;
+    const currentShop = menuSelect.value;
+    const currentMenuItems = MENUS[currentShop] || [];
+    const defaultIndices = getDefaultFavIndices(currentShop, member, currentMenuItems);
+
+    const kw = inputEl.value;
+    const topFavSection = dd.querySelector(".top-fav-section");
+    const allMenuSection = dd.querySelector(".all-menu-section");
+
+    // Ẩn tạm phần Đề xuất khi đang gõ tìm kiếm để nhìn kết quả ngay dưới ô input
+    if (topFavSection) {
+      topFavSection.style.display = kw.trim() !== "" ? "none" : "block";
+    }
+
+    allMenuSection.innerHTML = buildAllMenuHtml(currentMenuItems, defaultIndices, selectedIdx, kw);
+  }
+
+  // Xử lý khi click chọn 1 món trong danh sách
+  function selectDropdownItem(itemEl, idx) {
+    const dd = itemEl.closest(".custom-dropdown");
+    setDropdownValue(dd, idx);
+    dd.querySelector(".dropdown-panel").classList.remove("open");
+    dd.querySelector(".dropdown-btn").classList.remove("active");
+    updateSummary();
+  }
+
+  function setDropdownValue(dd, idx) {
+    const currentShop = menuSelect.value;
+    const currentMenuItems = MENUS[currentShop] || [];
+    const member = dd.dataset.member;
+    
+    const validIdx = currentMenuItems[idx] ? idx : 0;
+    dd.dataset.value = validIdx;
+    
+    const textSpan = dd.querySelector(".dropdown-btn .text");
+    textSpan.textContent = currentMenuItems[validIdx]?.name || "-- Không gọi --";
+    textSpan.style.fontWeight = validIdx > 0 ? "bold" : "normal";
+    textSpan.style.color = validIdx > 0 ? "#1b5e20" : "#333";
+
+    const panel = dd.querySelector(".dropdown-panel");
+    panel.innerHTML = buildDropdownPanelHtml(currentShop, member, currentMenuItems, validIdx);
+  }
+
+  // --- QUẢN LÝ LỊCH SỬ ĐƠN HÀNG ---
   function getOrderLogs() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_LOG_KEY)) || []; } 
-    catch { return []; }
+    try { return JSON.parse(localStorage.getItem(STORAGE_LOG_KEY)) || []; } catch { return []; }
   }
 
   function saveOrderLog(logEntry) {
     const logs = getOrderLogs();
-    logs.unshift(logEntry); // Đưa đơn mới nhất lên đầu
-    if (logs.length > 20) logs.pop(); // Giữ tối đa 20 đơn gần nhất
+    logs.unshift(logEntry);
+    if (logs.length > 20) logs.pop();
     localStorage.setItem(STORAGE_LOG_KEY, JSON.stringify(logs));
     renderHistoryLogs();
   }
@@ -181,94 +475,85 @@
   }
 
   function clearOrderLogs() {
-    if (confirm("Bạn có chắc muốn xóa danh sách lịch sử đơn hàng? (Bộ đếm món yêu thích vẫn được giữ nguyên)")) {
+    if (confirm("Bạn có chắc muốn xóa danh sách lịch sử đơn hàng?")) {
       localStorage.removeItem(STORAGE_LOG_KEY);
       renderHistoryLogs();
     }
   }
 
-  // 4. Hàm hiển thị danh sách chọn món (Có hỗ trợ giữ lại lựa chọn hiện tại)
-  function renderMemberMenu(keepSelection = false) {
+  // --- 4. HÀM HIỂN THỊ DANH SÁCH MÓN ---
+  function renderMemberMenu(keepSelection = false, initDraftSelections = null) {
     const currentShop = menuSelect.value;
     const currentMenuItems = MENUS[currentShop] || [];
     const memberListDiv = document.getElementById("member-list");
 
-    // Lưu tạm lựa chọn đang có trên màn hình nếu keepSelection = true
     const savedSelections = {};
     if (keepSelection) {
       document.querySelectorAll(".member-row").forEach(row => {
-        const m = row.querySelector(".member-select").dataset.member;
+        const dd = row.querySelector(".custom-dropdown");
+        const m = dd.dataset.member;
         savedSelections[m] = {
-          itemIdx: row.querySelector(".member-select").value,
+          itemIdx: dd.dataset.value,
           noteVal: row.querySelector(".note-select").value
         };
       });
+    } else if (initDraftSelections) {
+      Object.assign(savedSelections, initDraftSelections);
     }
 
     memberListDiv.innerHTML = "";
     const noteOptionsHtml = NOTE_OPTIONS.map(n => `<option value="${n.value}">${n.label}</option>`).join("");
 
     MEMBERS.forEach(member => {
-      const favorites = getTopFavorites(currentShop, member, currentMenuItems);
-      let favOptGroup = "";
-      if (favorites.length > 0) {
-        const favOptions = favorites.slice(0, 3).map(fav => 
-          `<option value="${fav.menuIndex}">⭐ ${fav.itemName} (${fav.count} lần)</option>`
-        ).join("");
-        favOptGroup = `<optgroup label="🔥 Món hay uống nhất">${favOptions}</optgroup>`;
-      }
-
-      const allOptions = currentMenuItems.slice(1).map((item, i) => 
-        `<option value="${i + 1}">${item.name}</option>`
-      ).join("");
+      const panelHtml = buildDropdownPanelHtml(currentShop, member, currentMenuItems, 0);
 
       const row = document.createElement("div");
       row.className = "member-row";
       row.innerHTML = `
         <span class="member-name"><strong>${member}</strong></span>
-        <select class="member-select" data-member="${member}" onchange="updateSummary()">
-          <option value="0">${currentMenuItems[0]?.name || "-- Không gọi --"}</option>
-          ${favOptGroup}
-          <optgroup label="📋 Toàn bộ Menu">${allOptions}</optgroup>
-        </select>
+        <div class="custom-dropdown" data-member="${member}" data-value="0">
+          <div class="dropdown-btn" onclick="toggleDropdown(this)">
+            <span class="text">${currentMenuItems[0]?.name || "-- Không gọi --"}</span>
+            <span class="arrow">▼</span>
+          </div>
+          <div class="dropdown-panel">${panelHtml}</div>
+        </div>
         <select class="note-select" data-member="${member}" onchange="updateSummary()">
           ${noteOptionsHtml}
         </select>
       `;
       memberListDiv.appendChild(row);
 
-      // Khôi phục lại món vừa chọn sau khi cập nhật bộ đếm
-      if (keepSelection && savedSelections[member]) {
-        row.querySelector(".member-select").value = savedSelections[member].itemIdx;
-        row.querySelector(".note-select").value = savedSelections[member].noteVal;
+      if ((keepSelection || initDraftSelections) && savedSelections[member]) {
+        const dd = row.querySelector(".custom-dropdown");
+        const not = row.querySelector(".note-select");
+        setDropdownValue(dd, savedSelections[member].itemIdx);
+        not.value = savedSelections[member].noteVal;
       }
     });
 
     updateSummary();
   }
 
-// 5. Hàm cập nhật bảng tóm tắt đọc cho thu ngân
+  // --- 5. HÀM TỔNG HỢP VÀ TÍNH TIỀN ---
   function updateSummary() {
     const currentShop = menuSelect.value;
     const currentMenuItems = MENUS[currentShop] || [];
     const grouped = {};
     
-    let originalTotal = 0; // Tổng giá gốc
-    let unroundedDiscountedTotal = 0; // Tổng giá sau giảm (chưa làm tròn) để báo thu ngân
+    let originalTotal = 0; 
+    let unroundedDiscountedTotal = 0; 
 
     document.querySelectorAll(".member-row").forEach(row => {
-      const itemSel = row.querySelector(".member-select");
+      const dd = row.querySelector(".custom-dropdown");
       const noteSel = row.querySelector(".note-select");
-      const item = currentMenuItems[itemSel.value];
+      const item = currentMenuItems[dd.dataset.value];
 
       if (item && item.price > 0) {
         if (!grouped[item.name]) grouped[item.name] = { total: 0, notes: {} };
         grouped[item.name].total += 1;
         
-        // Cộng tổng giá gốc
         originalTotal += item.price;
-        
-        // Tính tổng giá giảm 25% =nếu là TWB
         if (currentShop === "TWB") {
           unroundedDiscountedTotal += (item.price * 0.75);
         }
@@ -286,7 +571,6 @@
       return `• <b>${data.total}x</b> ${itemName}${noteSuffix}`;
     });
 
-    // Tạo chuỗi hiển thị HTML cho phần Tổng tiền
     let totalHtml = `<b>Tổng cộng: ${originalTotal.toLocaleString()} đ</b>`;
     if (currentShop === "TWB" && originalTotal > 0) {
       totalHtml += ` <span style="font-size: 12px; color: #d32f2f;">(Sau giảm 25%: ${unroundedDiscountedTotal.toLocaleString()} đ)</span>`;
@@ -295,10 +579,11 @@
     document.getElementById("order-summary").innerHTML = summaryLines.length > 0
       ? `${summaryLines.join("<br>")}<div style="margin-top:6px; padding-top:4px; border-top:1px dashed #4caf50;">${totalHtml}</div>` 
       : "Chưa chọn món nào";
+
+    saveDraft();
   }
 
-  // 6. Hàm đẩy dữ liệu lên Google Sheet & Lưu lịch sử
-// 6. Hàm đẩy dữ liệu lên Google Sheet & Lưu lịch sử
+  // --- 6. HÀM CHỐT ĐƠN VÀ ĐẨY LÊN SHEET ---
   async function submitOrder() {
     const currentShop = menuSelect.value;
     const currentMenuItems = MENUS[currentShop] || [];
@@ -306,28 +591,26 @@
     const selectedItemsForHistory = {};
     const logDetails = [];
     
-    let exactTotalMoney = 0; // Biến tính tổng hóa đơn KHÔNG làm tròn
+    let exactTotalMoney = 0; 
 
     document.querySelectorAll(".member-row").forEach(row => {
-      const itemSel = row.querySelector(".member-select");
+      const dd = row.querySelector(".custom-dropdown");
       const noteSel = row.querySelector(".note-select");
-      const member = itemSel.dataset.member;
-      const item = currentMenuItems[itemSel.value];
+      const member = dd.dataset.member;
+      const item = currentMenuItems[dd.dataset.value];
 
       if (item && item.price > 0) {
         let exactPrice = item.price;
         let roundedPrice = item.price;
 
-        // Nếu là TWB, tính giảm 25%
         if (currentShop === "TWB") {
-          exactPrice = item.price * 0.75; // Giá gốc giảm 25% (KHÔNG làm tròn)
-          roundedPrice = Math.round(exactPrice / 1000) * 1000; // Giá làm tròn để chia tiền
+          exactPrice = item.price * 0.75; 
+          roundedPrice = Math.round(exactPrice / 1000) * 1000; 
         }
 
-        orders[member] = roundedPrice; // Đẩy giá làm tròn vào phần từng người
+        orders[member] = roundedPrice; 
         selectedItemsForHistory[member] = item.name;
-        
-        exactTotalMoney += exactPrice; // Cộng giá KHÔNG làm tròn vào tổng hóa đơn
+        exactTotalMoney += exactPrice; 
         
         logDetails.push({
           member: member,
@@ -347,7 +630,7 @@
       menu: currentShop,
       payer: payerVal,
       orders: orders,
-      totalPrice: exactTotalMoney // GỬI TỔNG TIỀN KHÔNG LÀM TRÒN LÊN SCRIPT (Dòng 13)
+      totalPrice: exactTotalMoney 
     };
 
     const btn = document.getElementById("btn-submit");
@@ -371,9 +654,11 @@
           time: timeStr,
           shop: currentShop,
           payer: payerVal,
-          total: exactTotalMoney, // Lưu Lịch sử Order cũng hiển thị giá chưa làm tròn
+          total: exactTotalMoney,
           details: logDetails
         });
+
+        localStorage.removeItem(STORAGE_DRAFT_KEY);
 
         renderMemberMenu(true);
         alert("✅ Đã chốt đơn tự động vào Google Sheet thành công!");
@@ -388,7 +673,21 @@
     }
   }
 
-  renderMemberMenu();
+  // Khởi tạo App
+  let initDraftSelections = null;
+  const savedDraft = JSON.parse(localStorage.getItem(STORAGE_DRAFT_KEY));
+
+  if (savedDraft) {
+    if (savedDraft.date) document.getElementById("date").value = savedDraft.date;
+    if (savedDraft.shop) document.getElementById("menu-name").value = savedDraft.shop;
+    if (savedDraft.payer) document.getElementById("payer").value = savedDraft.payer;
+    initDraftSelections = savedDraft.selections;
+  } else {
+    const today = new Date();
+    document.getElementById("date").value = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
+  }
+
+  renderMemberMenu(false, initDraftSelections);
 </script>
 </body>
 </html>
