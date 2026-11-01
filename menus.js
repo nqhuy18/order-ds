@@ -101,12 +101,54 @@ const MENUS = {
     { name: "Topping - Sữa Yến Mạch (8k)", price: 8000 }
   ],
 
-  "Aribaca": [
+"Aribaca": [
     { name: "-- Không gọi --", price: 0 },
-    { name: "Cà phê Nâu / Đen - 30k", price: 30000 },
-    { name: "Bạc xỉu - 35k", price: 35000 },
-    { name: "Trà đào cam sả - 40k", price: 40000 },
-    { name: "Matcha Latte - 45k", price: 45000 }
+
+    // BLEND 1:1 (ROBUSTA + ARABICA)
+    { name: "Đen - 35k", price: 35000 },
+    { name: "Nâu - 40k", price: 40000 },
+    { name: "Bạc Xỉu - 45k", price: 45000 },
+    { name: "Cà Phê Kem Mặn - 45k", price: 45000 },
+
+    // ARABICA - HONEY
+    { name: "Espresso (Honey) - 45k", price: 45000 },
+    { name: "Americano (Honey) - 45k", price: 45000 },
+    { name: "Americano Bưởi - 50k", price: 50000 },
+    { name: "Americano Đào - 50k", price: 50000 },
+    { name: "Americano Chanh Leo - 50k", price: 50000 },
+    { name: "Americano Mơ Đào - 50k", price: 50000 },
+    { name: "Latte (Honey) - 50k", price: 50000 },
+    { name: "Cappuccino (Honey) - 50k", price: 50000 },
+
+    // ARABICA - NATURAL
+    { name: "Espresso (Natural) - 60k", price: 60000 },
+    { name: "Americano (Natural) - 60k", price: 60000 },
+    { name: "Latte (Natural) - 70k", price: 70000 },
+    { name: "Cappuccino (Natural) - 70k", price: 70000 },
+    { name: "V60 - 95k", price: 95000 },
+
+    // COLD BREW & CASCARA
+    { name: "Cold Brew Nguyên Vị - 35k", price: 35000 },
+    { name: "Cold Brew Bưởi - 40k", price: 40000 },
+    { name: "Cold Brew Đào - 40k", price: 40000 },
+    { name: "Cold Brew Chanh Leo - 40k", price: 40000 },
+    { name: "Cold Brew Mơ Đào - 40k", price: 40000 },
+    { name: "Trà Cascara (Ấm) - 55k", price: 55000 },
+
+    // SHAN TUYẾT & NON-COFFEE
+    { name: "Shan Nguyên Vị - 35k", price: 35000 },
+    { name: "Shan Mật Ong - 40k", price: 40000 },
+    { name: "Shan Kem Mặn - 45k", price: 45000 },
+    { name: "Hồng Trà Kem Mặn - 50k", price: 50000 },
+    { name: "Trà Sữa Gạo - 55k", price: 55000 },
+    { name: "Cacao Sữa Tươi - 40k", price: 40000 },
+    { name: "Cacao Kem Béo - 45k", price: 45000 },
+    { name: "Sữa Chua Cà Phê - 40k", price: 40000 },
+    { name: "Sữa Chua Trân Châu - 40k", price: 40000 },
+    { name: "Chanh Tươi - 35k", price: 35000 },
+    { name: "Chanh Mật Ong - 40k", price: 40000 },
+    { name: "Cam Tươi - 45k", price: 45000 },
+    { name: "Cam Mật Ong - 50k", price: 50000 }
   ]
 };
 
@@ -126,7 +168,16 @@ const DEFAULT_FAVORITES = {
     "Quốc Huy": ["Americano (M) - 49k", "Latte (S) - 55k"]
   },
   "Aribaca": {
-    "Thùy Dương": ["Bạc xỉu - 35k"],
-    "Quốc Huy": ["Cà phê Nâu / Đen - 30k"]
+    "Thùy Dương": ["Latte (Honey) - 50k"],
+    "Hà Thư": ["Latte (Honey) - 50k"],
+    "Hoàng Anh": ["Americano (Honey) - 45k"],
+    "Hữu Dũng": ["Latte (Honey) - 50k", "Cold Brew Bưởi - 40k", "Cold Brew Đào - 40k", "Cold Brew Mơ Đào - 40k", "Cold Brew Nguyên Vị - 35k"],
+    "Hồ Sang": ["Shan Nguyên Vị - 35k", "Latte (Honey) - 50k"],
+    "Tuấn Thành": ["Latte (Honey) - 50k", "Cold Brew Bưởi - 40k", "Cold Brew Đào - 40k", "Cold Brew Mơ Đào - 40k", "Cold Brew Nguyên Vị - 35k"],
+    "Phạm Duy": ["Latte (Honey) - 50k", "Cold Brew Bưởi - 40k", "Cold Brew Đào - 40k", "Cold Brew Mơ Đào - 40k", "Cold Brew Nguyên Vị - 35k"],
+    "Việt Dũng": ["Latte (Honey) - 50k", "Cold Brew Bưởi - 40k", "Cold Brew Đào - 40k", "Cold Brew Mơ Đào - 40k", "Cold Brew Nguyên Vị - 35k"],
+    "Bùi Loan": ["Latte (Honey) - 50k", "Cold Brew Bưởi - 40k", "Cold Brew Đào - 40k", "Cold Brew Mơ Đào - 40k", "Cold Brew Nguyên Vị - 35k"],
+    "Dương Lan": ["Latte (Honey) - 50k", "Bạc Xỉu - 45k"],
+    "Quốc Huy": ["Latte (Honey) - 50k", "Cold Brew Bưởi - 40k", "Cold Brew Đào - 40k", "Cold Brew Mơ Đào - 40k", "Cold Brew Nguyên Vị - 35k"]
   }
 };

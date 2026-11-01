@@ -4,14 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Order Nhóm</title>
-  <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 12px; background: #f4f6f8; }
-    .card { background: white; padding: 12px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+<style>
+    body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 8px; background: #f4f6f8; }
+    .card { background: white; padding: 10px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .summary { background: #e8f5e9; border: 1px solid #4caf50; position: sticky; top: 0; z-index: 100; }
-    .member-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+    
+    /* Tối ưu khoảng cách các cột trên điện thoại */
+    .member-row { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
     .member-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-    .member-name { width: 95px; font-size: 14px; flex-shrink: 0; }
-    .note-select { width: 95px; flex-shrink: 0; background-color: #fafafa; }
+    .member-name { width: 80px; font-size: 13px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .note-select { width: 62px; flex-shrink: 0; background-color: #fafafa; padding: 7px 2px; font-size: 12px; text-overflow: ellipsis; }
+    
     select, input, button { padding: 7px; border-radius: 5px; border: 1px solid #ccc; font-size: 13px; }
     .btn-group { display: flex; gap: 8px; margin-bottom: 10px; }
     button.push-btn { flex: 2; background: #2e7d32; color: white; font-weight: bold; border: none; padding: 12px; font-size: 15px; cursor: pointer; }
@@ -21,38 +24,38 @@
     .log-item { border-bottom: 1px dashed #ccc; padding: 8px 0; font-size: 13px; }
     .log-item:last-child { border-bottom: none; }
 
-    /* Custom Dropdown tích hợp ô Search bên trong */
+    /* Custom Dropdown: Mở rộng tối đa cột Order và khung xổ xuống */
     .custom-dropdown { position: relative; flex: 1; min-width: 0; user-select: none; }
     .dropdown-btn {
-      padding: 7px 10px; border: 1px solid #ccc; border-radius: 5px; background: white;
+      padding: 7px 8px; border: 1px solid #ccc; border-radius: 5px; background: white;
       font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
     }
     .dropdown-btn span.text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .dropdown-btn span.arrow { font-size: 10px; color: #666; margin-left: 6px; flex-shrink: 0; }
+    .dropdown-btn span.arrow { font-size: 10px; color: #666; margin-left: 4px; flex-shrink: 0; }
     .dropdown-btn.active { border-color: #2e7d32; box-shadow: 0 0 0 2px rgba(46,125,50,0.15); }
     
+    /* Cho phép khung menu khi xổ xuống rộng tối thiểu 260px để không bị bó hẹp */
     .dropdown-panel {
-      display: none; position: absolute; top: 100%; left: 0; right: 0; background: white;
-      border: 1px solid #bbb; border-radius: 6px; box-shadow: 0 6px 16px rgba(0,0,0,0.18);
-      z-index: 50; max-height: 310px; overflow-y: auto; margin-top: 3px;
+      display: none; position: absolute; top: 100%; left: 0; min-width: 260px; width: 100%; background: white;
+      border: 1px solid #bbb; border-radius: 6px; box-shadow: 0 6px 16px rgba(0,0,0,0.22);
+      z-index: 50; max-height: 320px; overflow-y: auto; margin-top: 3px;
     }
     .dropdown-panel.open { display: block; }
     
     .group-header {
-      padding: 5px 10px; font-size: 11px; font-weight: bold; color: #444;
+      padding: 6px 10px; font-size: 11px; font-weight: bold; color: #444;
       background: #f1f3f5; border-top: 1px solid #e9ecef; border-bottom: 1px solid #e9ecef;
     }
-    .dropdown-item { padding: 8px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f8f9fa; }
+    .dropdown-item { padding: 9px 10px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f8f9fa; line-height: 1.3; }
     .dropdown-item:hover { background: #e8f5e9; }
     .dropdown-item.selected { background: #c8e6c9; font-weight: bold; color: #1b5e20; }
     
-    /* Ô tìm kiếm nằm ngay trên mục Toàn bộ Menu */
     .inline-search-box {
       padding: 6px 8px; background: #fff; position: sticky; top: 0; z-index: 5;
       border-top: 1px solid #eee; border-bottom: 1px solid #ddd;
     }
     .inline-search-input {
-      width: 100%; box-sizing: border-box; padding: 6px 8px; font-size: 12px;
+      width: 100%; box-sizing: border-box; padding: 7px 8px; font-size: 13px;
       border: 1px solid #2e7d32; border-radius: 4px; outline: none; background: #f9fbe7;
     }
   </style>
@@ -105,7 +108,7 @@
 <script src="menus.js"></script>
 
 <script>
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMMVcNYsbWyfidNSzXllwBKVCL9DFMHr6Y8SAAcf14uScCisdq0fTE2qZFF-Qfntcf1Q/exec";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxnqGcL89RhAUFOYc9lxVr4JQmROcorTyP_82NPUWxJvq6wwv0iMCHKJbl0XRSyYP1agw/exec";
   const STORAGE_FAV_KEY = "ORDER_FAV_HISTORY";
   const STORAGE_LOG_KEY = "ORDER_DETAIL_LOGS";
   const STORAGE_DRAFT_KEY = "ORDER_CURRENT_DRAFT";
@@ -661,15 +664,15 @@
         localStorage.removeItem(STORAGE_DRAFT_KEY);
 
         renderMemberMenu(true);
-        alert("✅ Đã chốt đơn tự động vào Google Sheet thành công!");
+        alert("Đã điền tự động vào Google Sheet thành công!");
       } else {
-        alert("❌ Lỗi: " + result.msg);
+        alert(" Lỗi: " + result.msg);
       }
     } catch (e) {
-      alert("❌ Lỗi kết nối: " + e.toString());
+      alert(" Lỗi kết nối: " + e.toString());
     } finally {
       btn.disabled = false;
-      btn.textContent = "🚀 CHỐT ĐƠN";
+      btn.textContent = " CHỐT ĐƠN";
     }
   }
 

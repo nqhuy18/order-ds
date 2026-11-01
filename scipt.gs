@@ -128,14 +128,15 @@ function doPost(e) {
         sheet.getRange(row, nextCol).setValue(data.orders[name]);
       } else if (name === "Thực đơn") {
         sheet.getRange(row, nextCol).setValue(data.menu);
+        
+        // Tự động điền Tổng tiền vào dòng ngay phía trên dòng "Thực đơn" (dòng 13)
+        if (data.totalPrice !== undefined && row > 1) {
+          sheet.getRange(row - 1, nextCol).setValue(data.totalPrice);
+        }
       } else if (name === "Người chi tiền") {
         sheet.getRange(row, nextCol).setValue(data.payer);
-      } else if (name === "Tổng tiền") { 
-        // ĐIỀN TỔNG TIỀN VÀO DÒNG 13 (TỔNG TIỀN)
-        sheet.getRange(row, nextCol).setValue(data.totalPrice);
       }
     }
-
     if (typeof highlightCells === "function") {
       highlightCells();
     }
