@@ -105,6 +105,14 @@ function doPost(e) {
     
     const firstMemberRow = colA.indexOf("Thùy Dương") + 1; 
     const dateRow = firstMemberRow > 1 ? firstMemberRow - 1 : 1;
+    const totalRow = colA.findIndex(name => name.toLowerCase().replace(/:$/, "") === "tổng tiền") + 1;
+
+    if (totalRow === 0) {
+      throw new Error('Không tìm thấy dòng "Tổng tiền" trong cột A.');
+    }
+    if (typeof data.totalPrice !== "number" || !Number.isFinite(data.totalPrice)) {
+      throw new Error("Giá trị totalPrice không hợp lệ.");
+    }
     
     const maxCols = sheet.getMaxColumns();
     const dateRowValues = sheet.getRange(dateRow, 1, 1, maxCols).getValues()[0];
@@ -128,15 +136,12 @@ function doPost(e) {
         sheet.getRange(row, nextCol).setValue(data.orders[name]);
       } else if (name === "Thực đơn") {
         sheet.getRange(row, nextCol).setValue(data.menu);
-        
-        // Tự động điền Tổng tiền vào dòng ngay phía trên dòng "Thực đơn" (dòng 13)
-        if (data.totalPrice !== undefined && row > 1) {
-          sheet.getRange(row - 1, nextCol).setValue(data.totalPrice);
-        }
       } else if (name === "Người chi tiền") {
         sheet.getRange(row, nextCol).setValue(data.payer);
       }
     }
+    sheet.getRange(totalRow, nextCol).setValue(data.totalPrice);
+
     if (typeof highlightCells === "function") {
       highlightCells();
     }

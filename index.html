@@ -79,7 +79,7 @@
     <div style="display: flex; gap: 10px; margin-bottom: 8px;">
       <div style="flex: 1;">
         <label style="font-size: 12px; color: #555;">Ngày:</label>
-        <input type="text" id="date" style="width: 100%; box-sizing: border-box; height: 32px;" placeholder="DD/MM/YYYY" onchange="saveDraft()" oninput="saveDraft()">
+        <input type="text" id="date" style="width: 100%; box-sizing: border-box; height: 32px;" placeholder="DD/MM/YYYY" onchange="handleDateInput()" oninput="handleDateInput()">
       </div>
       <div style="flex: 1;">
         <label style="font-size: 12px; color: #555;">Chọn quán :</label>
@@ -133,10 +133,21 @@
 <script src="menus.js"></script>
 
 <script>
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMMVcNYsbWyfidNSzXllwBKVCL9DFMHr6Y8SAAcf14uScCisdq0fTE2qZFF-Qfntcf1Q/exec";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzie2bWNa197xqWBNnlnfJMRKPHfKgf5QkvnuLf8IlcYogIqKZi6fRWZ4Xd8vVXGckVHQ/exec";
   const STORAGE_FAV_KEY = "ORDER_FAV_HISTORY";
   const STORAGE_LOG_KEY = "ORDER_DETAIL_LOGS";
   const STORAGE_DRAFT_KEY = "ORDER_CURRENT_DRAFT";
+  let dateEditedManually = false;
+
+  function getDeviceDate() {
+    const today = new Date();
+    return `${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}/${today.getFullYear()}`;
+  }
+
+  function handleDateInput() {
+    dateEditedManually = true;
+    saveDraft();
+  }
 
   const NOTE_OPTIONS = [
     { label: "---", value: "" },
@@ -413,8 +424,8 @@
   function resetForm() {
     if (confirm("Bạn có chắc muốn xóa trắng toàn bộ đơn đang chọn?")) {
       localStorage.removeItem(STORAGE_DRAFT_KEY);
-      const today = new Date();
-      document.getElementById("date").value = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
+      dateEditedManually = false;
+      document.getElementById("date").value = getDeviceDate();
       renderMemberMenu(false);
     }
   }
@@ -870,18 +881,27 @@
   // Khởi tạo App
   let initDraftSelections = null;
   const savedDraft = JSON.parse(localStorage.getItem(STORAGE_DRAFT_KEY));
+  document.getElementById("date").value = getDeviceDate();
 
   if (savedDraft) {
-    if (savedDraft.date) document.getElementById("date").value = savedDraft.date;
     if (savedDraft.shop) document.getElementById("menu-name").value = savedDraft.shop;
     if (savedDraft.payer) document.getElementById("payer").value = savedDraft.payer;
     initDraftSelections = savedDraft.selections;
-  } else {
-    const today = new Date();
-    document.getElementById("date").value = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
   }
 
   renderMemberMenu(false, initDraftSelections);
+
+  let lastDeviceDate = getDeviceDate();
+  setInterval(() => {
+    const deviceDate = getDeviceDate();
+    if (deviceDate !== lastDeviceDate) {
+      if (!dateEditedManually) {
+        document.getElementById("date").value = deviceDate;
+        saveDraft();
+      }
+      lastDeviceDate = deviceDate;
+    }
+  }, 60000);
 </script>
 </body>
 </html>
