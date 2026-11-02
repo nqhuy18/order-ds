@@ -4,15 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Order Nhóm</title>
-<style>
+  <style>
     body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 8px; background: #f4f6f8; }
     .card { background: white; padding: 10px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .summary { background: #e8f5e9; border: 1px solid #4caf50; position: sticky; top: 0; z-index: 100; }
     
-    /* Tối ưu khoảng cách các cột trên điện thoại */
     .member-row { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
     .member-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-    .member-name { width: 80px; font-size: 13px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    .quick-cb { width: 17px; height: 17px; margin: 0 2px 0 0; cursor: pointer; accent-color: #1565c0; flex-shrink: 0; }
+    .member-name { width: 78px; font-size: 13px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
     .note-select { width: 62px; flex-shrink: 0; background-color: #fafafa; padding: 7px 2px; font-size: 12px; text-overflow: ellipsis; }
     
     select, input, button { padding: 7px; border-radius: 5px; border: 1px solid #ccc; font-size: 13px; }
@@ -24,22 +25,24 @@
     .log-item { border-bottom: 1px dashed #ccc; padding: 8px 0; font-size: 13px; }
     .log-item:last-child { border-bottom: none; }
 
-    /* Custom Dropdown: Mở rộng tối đa cột Order và khung xổ xuống */
+    /* Custom Dropdown */
     .custom-dropdown { position: relative; flex: 1; min-width: 0; user-select: none; }
     .dropdown-btn {
       padding: 7px 8px; border: 1px solid #ccc; border-radius: 5px; background: white;
       font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+      box-sizing: border-box; height: 32px;
     }
     .dropdown-btn span.text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .dropdown-btn span.arrow { font-size: 10px; color: #666; margin-left: 4px; flex-shrink: 0; }
     .dropdown-btn.active { border-color: #2e7d32; box-shadow: 0 0 0 2px rgba(46,125,50,0.15); }
     
-    /* Cho phép khung menu khi xổ xuống rộng tối thiểu 260px để không bị bó hẹp */
     .dropdown-panel {
       display: none; position: absolute; top: 100%; left: 0; min-width: 260px; width: 100%; background: white;
       border: 1px solid #bbb; border-radius: 6px; box-shadow: 0 6px 16px rgba(0,0,0,0.22);
       z-index: 50; max-height: 320px; overflow-y: auto; margin-top: 3px;
     }
+    /* Đảm bảo bảng xổ xuống của ô Món nhanh (nằm bên phải) không bị tràn khỏi màn hình điện thoại */
+    #quick-dd-panel { left: auto; right: 0; }
     .dropdown-panel.open { display: block; }
     
     .group-header {
@@ -58,6 +61,8 @@
       width: 100%; box-sizing: border-box; padding: 7px 8px; font-size: 13px;
       border: 1px solid #2e7d32; border-radius: 4px; outline: none; background: #f9fbe7;
     }
+
+    .quick-action-link { font-size: 11px; color: #1565c0; cursor: pointer; text-decoration: underline; margin-left: 6px; font-weight: normal; }
   </style>
 </head>
 <body>
@@ -65,7 +70,7 @@
   <!-- Khung tóm tắt số lượng để đọc cho thu ngân -->
   <div class="card summary">
     <button class="reset-btn" onclick="resetForm()">🔄 Làm mới</button>
-    <strong>📋 Tổng hợp hóa đơn:</strong>
+    <strong>Tổng hợp :</strong>
     <div id="order-summary" style="margin-top: 5px; font-size: 14px; color: #1b5e20; line-height: 1.5;">Chưa chọn món nào</div>
   </div>
 
@@ -74,32 +79,52 @@
     <div style="display: flex; gap: 10px; margin-bottom: 8px;">
       <div style="flex: 1;">
         <label style="font-size: 12px; color: #555;">Ngày:</label>
-        <input type="text" id="date" style="width: 100%; box-sizing: border-box;" placeholder="DD/MM/YYYY" onchange="saveDraft()" oninput="saveDraft()">
+        <input type="text" id="date" style="width: 100%; box-sizing: border-box; height: 32px;" placeholder="DD/MM/YYYY" onchange="saveDraft()" oninput="saveDraft()">
       </div>
       <div style="flex: 1;">
-        <label style="font-size: 12px; color: #555;">Chọn quán (Thực đơn):</label>
-        <select id="menu-name" style="width: 100%; box-sizing: border-box;" onchange="renderMemberMenu()"></select>
+        <label style="font-size: 12px; color: #555;">Chọn quán :</label>
+        <select id="menu-name" style="width: 100%; box-sizing: border-box; height: 32px;" onchange="renderMemberMenu()"></select>
       </div>
     </div>
-    <div>
-      <label style="font-size: 12px; color: #555;">Người chi tiền:</label>
-      <select id="payer" style="width: 100%; margin-top: 4px;" onchange="saveDraft()"></select>
+
+    <!-- Hàng 2: Người chi tiền & Ô chọn món nhanh nằm cùng 1 hàng -->
+    <div style="display: flex; gap: 10px; align-items: flex-end;">
+      <div style="flex: 1; min-width: 0;">
+        <label style="font-size: 12px; color: #555; display: block; margin-bottom: 4px;">Người chi tiền:</label>
+        <select id="payer" style="width: 100%; box-sizing: border-box; height: 32px;" onchange="saveDraft()"></select>
+      </div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <label style="font-size: 12px; color: #0d47a1; font-weight: bold;">Đặt nhanh</label>
+          <span id="quick-bulk-actions" style="display: none;">
+            <span class="quick-action-link" onclick="toggleAllQuickChecks(true)">Tích hết</span>
+            <span class="quick-action-link" onclick="toggleAllQuickChecks(false)">Bỏ</span>
+          </span>
+        </div>
+        <div class="custom-dropdown" id="quick-dropdown" data-value="0">
+          <div class="dropdown-btn" onclick="toggleDropdown(this)" style="background: #e3f2fd; border-color: #90caf9;">
+            <span class="text" id="quick-dd-text">-- Không gọi --</span>
+            <span class="arrow">▼</span>
+          </div>
+          <div class="dropdown-panel" id="quick-dd-panel"></div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Danh sách chọn món từng người -->
+  <!-- Danh sách từng người -->
   <div class="card" id="member-list"></div>
 
   <!-- Cụm nút bấm -->
   <div class="btn-group">
-    <button class="push-btn" id="btn-submit" onclick="submitOrder()"> CHỐT ĐƠN </button>
-    <button class="history-btn" onclick="toggleHistoryLog()"> Lịch sử Order</button>
+    <button class="push-btn" id="btn-submit" onclick="submitOrder()"> GỬI </button>
+    <button class="history-btn" onclick="toggleHistoryLog()">Lịch sử </button>
   </div>
 
   <!-- Khung hiển thị lịch sử các lần Order để Double Check -->
   <div class="card" id="history-log-box" style="display: none; background: #fffde7; border: 1px solid #fbc02d;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-      <strong>🕒 Lịch sử các đơn đã chốt gần đây:</strong>
+      <strong>Lịch sử các đơn gần đây:</strong>
       <button onclick="clearOrderLogs()" style="font-size: 11px; padding: 3px 6px; color: #d32f2f;">Xóa lịch sử</button>
     </div>
     <div id="history-log-content"></div>
@@ -108,7 +133,7 @@
 <script src="menus.js"></script>
 
 <script>
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxnqGcL89RhAUFOYc9lxVr4JQmROcorTyP_82NPUWxJvq6wwv0iMCHKJbl0XRSyYP1agw/exec";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMMVcNYsbWyfidNSzXllwBKVCL9DFMHr6Y8SAAcf14uScCisdq0fTE2qZFF-Qfntcf1Q/exec";
   const STORAGE_FAV_KEY = "ORDER_FAV_HISTORY";
   const STORAGE_LOG_KEY = "ORDER_DETAIL_LOGS";
   const STORAGE_DRAFT_KEY = "ORDER_CURRENT_DRAFT";
@@ -123,23 +148,19 @@
     { label: "Không đá", value: "không đá" }
   ];
 
-  // Chuẩn hóa tiếng Việt không dấu
   function removeAccents(str) {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
   }
 
-  // Thuật toán chấm điểm độ giống (Fuzzy Match) giữa từ khóa và tên món
   function calcMatchScore(itemName, query) {
     const normItem = removeAccents(itemName);
     const normQuery = removeAccents(query.trim());
     if (!normQuery) return 1;
 
-    // 1. Khớp chính xác cả cụm từ liền nhau
     if (normItem.includes(normQuery)) {
       return 100 + (normItem.startsWith(normQuery) ? 20 : 0);
     }
 
-    // 2. Khớp theo từng từ rời rạc (VD: gõ "cf muoi" hoặc "tra dao")
     const qWords = normQuery.split(/\s+/);
     let matchedWords = 0;
     let score = 0;
@@ -149,7 +170,6 @@
         matchedWords++;
         score += 25;
       } else {
-        // Kiểm tra viết tắt chữ cái đầu (VD: "bx" -> "bac xiu")
         const initials = normItem.split(/[^a-z0-9]+/).map(w => w[0]).join("");
         if (initials.includes(qw)) {
           matchedWords++;
@@ -158,9 +178,8 @@
       }
     }
     if (matchedWords === qWords.length) return score;
-    if (matchedWords > 0) return score * 0.6; // Khớp một phần từ khóa
+    if (matchedWords > 0) return score * 0.6;
 
-    // 3. Khớp thứ tự ký tự gần đúng (Subsequence)
     let qIdx = 0;
     for (let i = 0; i < normItem.length && qIdx < normQuery.length; i++) {
       if (normItem[i] === normQuery[qIdx]) qIdx++;
@@ -198,6 +217,175 @@
       });
     }
   });
+
+  // --- QUẢN LÝ Ô MÓN NHANH (CHỈ HIỆN MÓN DEFAULT + THANH TÌM KIẾM) ---
+  function getQuickDefaultIndices(shop, currentMenuItems) {
+    if (typeof QUICK_DEFAULTS !== "undefined" && QUICK_DEFAULTS[shop]) {
+      const indices = QUICK_DEFAULTS[shop]
+        .map(name => currentMenuItems.findIndex(item => item.name === name))
+        .filter(idx => idx > 0);
+      if (indices.length > 0) return indices;
+    }
+    // Nếu chưa khai báo QUICK_DEFAULTS trong menus.js thì lấy tạm món số 1 làm default
+    return currentMenuItems.length > 1 ? [1] : [];
+  }
+
+  function initQuickSelector() {
+    setQuickDropdownValue(0);
+  }
+
+  function buildQuickMenuListHtml(shop, currentMenuItems, selectedIdx, keyword = "") {
+    const kw = keyword.trim();
+    const quickDefIndices = getQuickDefaultIndices(shop, currentMenuItems);
+
+    // Khi có gõ từ khóa tìm kiếm -> Hiện các kết quả khớp
+    if (kw !== "") {
+      const scored = [];
+      for (let i = 1; i < currentMenuItems.length; i++) {
+        const score = calcMatchScore(currentMenuItems[i].name, kw);
+        if (score > 0) scored.push({ idx: i, name: currentMenuItems[i].name, score });
+      }
+      scored.sort((a, b) => b.score - a.score);
+      if (scored.length === 0) return `<div class="group-header">❌ Không tìm thấy món phù hợp</div>`;
+      return `<div class="group-header">🔍 Kết quả (${scored.length})</div>` + scored.map(item => `
+        <div class="dropdown-item ${String(selectedIdx) === String(item.idx) ? 'selected' : ''}" onclick="selectQuickDropdownItem(${item.idx})">
+          ${item.name}
+        </div>
+      `).join("");
+    }
+
+    // Khi KHÔNG gõ tìm kiếm -> Chỉ hiện mục Không gọi & Món Default (Ẩn toàn bộ menu)
+    const zeroHtml = `
+      <div class="dropdown-item ${String(selectedIdx) === '0' ? 'selected' : ''}" onclick="selectQuickDropdownItem(0)">
+        ${currentMenuItems[0]?.name || "-- Không gọi --"}
+      </div>
+    `;
+
+    let defHtml = "";
+    if (quickDefIndices.length > 0) {
+      const items = quickDefIndices.map(idx => `
+        <div class="dropdown-item ${String(selectedIdx) === String(idx) ? 'selected' : ''}" onclick="selectQuickDropdownItem(${idx})">
+          📌 ${currentMenuItems[idx].name}
+        </div>
+      `).join("");
+      defHtml = `<div class="group-header">⚡ Món mặc định</div>${items}`;
+    }
+
+    return `${zeroHtml}${defHtml}`;
+  }
+
+  function setQuickDropdownValue(idx) {
+    const currentShop = menuSelect.value;
+    const currentMenuItems = MENUS[currentShop] || [];
+    const validIdx = currentMenuItems[idx] ? idx : 0;
+    
+    const quickDd = document.getElementById("quick-dropdown");
+    quickDd.dataset.value = validIdx;
+    
+    const textSpan = document.getElementById("quick-dd-text");
+    textSpan.textContent = currentMenuItems[validIdx]?.name || "-- Không gọi --";
+    textSpan.style.fontWeight = validIdx > 0 ? "bold" : "normal";
+    textSpan.style.color = validIdx > 0 ? "#0d47a1" : "#555";
+
+    const panel = document.getElementById("quick-dd-panel");
+    panel.innerHTML = `
+      <div class="quick-top-section">${buildQuickMenuListHtml(currentShop, currentMenuItems, validIdx, "")}</div>
+      <div class="inline-search-box">
+        <input type="text" class="inline-search-input" placeholder="🔍 Tìm món khác..." oninput="onQuickSearch(this)" onclick="event.stopPropagation()">
+      </div>
+      <div class="quick-search-results"></div>
+    `;
+
+    syncQuickCheckboxes();
+  }
+
+  function onQuickSearch(inputEl) {
+    const currentShop = menuSelect.value;
+    const currentMenuItems = MENUS[currentShop] || [];
+    const selectedIdx = document.getElementById("quick-dropdown").dataset.value;
+    const panel = inputEl.closest(".dropdown-panel");
+    const topSec = panel.querySelector(".quick-top-section");
+    const resSec = panel.querySelector(".quick-search-results");
+    const kw = inputEl.value;
+
+    if (kw.trim() !== "") {
+      topSec.style.display = "none";
+      resSec.innerHTML = buildQuickMenuListHtml(currentShop, currentMenuItems, selectedIdx, kw);
+    } else {
+      topSec.style.display = "block";
+      resSec.innerHTML = "";
+    }
+  }
+
+  function selectQuickDropdownItem(idx) {
+    setQuickDropdownValue(idx);
+    const quickDd = document.getElementById("quick-dropdown");
+    quickDd.querySelector(".dropdown-panel").classList.remove("open");
+    quickDd.querySelector(".dropdown-btn").classList.remove("active");
+  }
+
+  function syncQuickCheckboxes() {
+    const quickDd = document.getElementById("quick-dropdown");
+    if (!quickDd) return;
+    const quickIdx = Number(quickDd.dataset.value || 0);
+    const showCheckbox = quickIdx > 0;
+
+    const bulkActions = document.getElementById("quick-bulk-actions");
+    if (bulkActions) {
+      bulkActions.style.display = showCheckbox ? "inline" : "none";
+    }
+
+    document.querySelectorAll(".member-row").forEach(row => {
+      const cb = row.querySelector(".quick-cb");
+      const dd = row.querySelector(".custom-dropdown");
+      if (!cb || !dd) return;
+
+      if (showCheckbox) {
+        cb.style.display = "inline-block";
+        cb.checked = Number(dd.dataset.value) === quickIdx;
+      } else {
+        cb.style.display = "none";
+        cb.checked = false;
+      }
+    });
+  }
+
+  function onMemberQuickCheck(cbEl) {
+    const quickIdx = Number(document.getElementById("quick-dropdown").dataset.value || 0);
+    if (quickIdx <= 0) return;
+
+    const row = cbEl.closest(".member-row");
+    const dd = row.querySelector(".custom-dropdown");
+
+    if (cbEl.checked) {
+      setDropdownValue(dd, quickIdx);
+    } else {
+      setDropdownValue(dd, 0);
+    }
+    updateSummary();
+  }
+
+  function onMemberNameClick(nameEl) {
+    const row = nameEl.closest(".member-row");
+    const cb = row.querySelector(".quick-cb");
+    if (cb && cb.style.display !== "none") {
+      cb.checked = !cb.checked;
+      onMemberQuickCheck(cb);
+    }
+  }
+
+  function toggleAllQuickChecks(checkState) {
+    const quickIdx = Number(document.getElementById("quick-dropdown").dataset.value || 0);
+    if (quickIdx <= 0) return;
+
+    document.querySelectorAll(".member-row").forEach(row => {
+      const cb = row.querySelector(".quick-cb");
+      const dd = row.querySelector(".custom-dropdown");
+      cb.checked = checkState;
+      setDropdownValue(dd, checkState ? quickIdx : 0);
+    });
+    updateSummary();
+  }
 
   // --- LƯU NHÁP TỰ ĐỘNG ---
   function saveDraft() {
@@ -266,57 +454,33 @@
       .sort((a, b) => b.count - a.count);
   }
 
-  // Xây dựng danh sách phẳng cho mục "Toàn bộ Menu" (Đưa món đề xuất ban đầu lên đầu tiên)
   function buildAllMenuHtml(currentMenuItems, defaultIndices, selectedIdx, keyword = "") {
     const kw = keyword.trim();
+    if (kw === "") return "";
+
     const defaultSet = new Set(defaultIndices);
-
-    // Nếu đang gõ tìm kiếm -> Chấm điểm và sắp xếp theo độ sát từ khóa
-    if (kw !== "") {
-      const scoredItems = [];
-      for (let i = 1; i < currentMenuItems.length; i++) {
-        const score = calcMatchScore(currentMenuItems[i].name, kw);
-        if (score > 0) {
-          scoredItems.push({ idx: i, name: currentMenuItems[i].name, score, isDef: defaultSet.has(i) });
-        }
+    const scoredItems = [];
+    for (let i = 1; i < currentMenuItems.length; i++) {
+      const score = calcMatchScore(currentMenuItems[i].name, kw);
+      if (score > 0) {
+        scoredItems.push({ idx: i, name: currentMenuItems[i].name, score, isDef: defaultSet.has(i) });
       }
-      scoredItems.sort((a, b) => b.score - a.score);
+    }
+    scoredItems.sort((a, b) => b.score - a.score);
 
-      if (scoredItems.length === 0) {
-        return `<div class="group-header">❌ Không tìm thấy món phù hợp</div>`;
-      }
-
-      const itemsHtml = scoredItems.map(item => `
-        <div class="dropdown-item ${String(selectedIdx) === String(item.idx) ? 'selected' : ''}" onclick="selectDropdownItem(this, ${item.idx})">
-          ${item.isDef ? "📌 " : ""}${item.name}
-        </div>
-      `).join("");
-
-      return `<div class="group-header">🔍 Kết quả gần nhất (${scoredItems.length})</div>${itemsHtml}`;
+    if (scoredItems.length === 0) {
+      return `<div class="group-header">❌ Không tìm thấy món phù hợp</div>`;
     }
 
-    // Nếu không gõ tìm kiếm -> Đưa các món DEFAULT_FAVORITES lên vị trí cao nhất của Toàn bộ Menu
-    const pinnedHtml = defaultIndices.map(idx => `
-      <div class="dropdown-item ${String(selectedIdx) === String(idx) ? 'selected' : ''}" onclick="selectDropdownItem(this, ${idx})">
-        📌 ${currentMenuItems[idx].name}
+    const itemsHtml = scoredItems.map(item => `
+      <div class="dropdown-item ${String(selectedIdx) === String(item.idx) ? 'selected' : ''}" onclick="selectDropdownItem(this, ${item.idx})">
+        ${item.isDef ? "📌 " : ""}${item.name}
       </div>
     `).join("");
 
-    const othersHtml = [];
-    for (let i = 1; i < currentMenuItems.length; i++) {
-      if (!defaultSet.has(i)) {
-        othersHtml.push(`
-          <div class="dropdown-item ${String(selectedIdx) === String(i) ? 'selected' : ''}" onclick="selectDropdownItem(this, ${i})">
-            ${currentMenuItems[i].name}
-          </div>
-        `);
-      }
-    }
-
-    return `<div class="group-header">📋 Toàn bộ Menu</div>${pinnedHtml}${othersHtml.join("")}`;
+    return `<div class="group-header">🔍 Kết quả tìm kiếm (${scoredItems.length})</div>${itemsHtml}`;
   }
 
-  // Tạo toàn bộ nội dung bên trong Dropdown của từng người
   function buildDropdownPanelHtml(shop, member, currentMenuItems, selectedIdx) {
     const localFavs = getLocalFavorites(shop, member, currentMenuItems);
     const defaultIndices = getDefaultFavIndices(shop, member, currentMenuItems);
@@ -327,66 +491,92 @@
       </div>
     `;
 
-    // Phần 1: Đề xuất trên cùng (Nếu có localStorage thì lấy Đặt nhiều nhất, chưa có thì lấy Đề xuất ban đầu)
     let topFavHtml = "";
-    if (localFavs.length > 0) {
-      const items = localFavs.slice(0, 3).map(fav => `
+    const topLocal = localFavs.slice(0, 3);
+    const topLocalSet = new Set(topLocal.map(f => f.menuIndex));
+
+    if (topLocal.length > 0) {
+      const items = topLocal.map(fav => `
         <div class="dropdown-item ${String(selectedIdx) === String(fav.menuIndex) ? 'selected' : ''}" onclick="selectDropdownItem(this, ${fav.menuIndex})">
           ⭐ ${fav.itemName} (${fav.count} lần)
         </div>
       `).join("");
-      topFavHtml = `<div class="group-header">Đặt nhiều nhất</div>${items}`;
-    } else if (defaultIndices.length > 0) {
-      const items = defaultIndices.map(idx => `
-        <div class="dropdown-item ${String(selectedIdx) === String(idx) ? 'selected' : ''}" onclick="selectDropdownItem(this, ${idx})">
-          ⭐ ${currentMenuItems[idx].name} (Đề xuất)
-        </div>
-      `).join("");
-      topFavHtml = `<div class="group-header">Món đề xuất</div>${items}`;
+      topFavHtml += `<div class="group-header">🔥 Đặt nhiều nhất</div>${items}`;
     }
 
-    // Phần 2: Ô tìm kiếm nằm ngay trên mục Toàn bộ Menu
+    const uniqueDefaultIndices = defaultIndices.filter(idx => !topLocalSet.has(idx));
+    if (uniqueDefaultIndices.length > 0) {
+      const defItems = uniqueDefaultIndices.map(idx => `
+        <div class="dropdown-item ${String(selectedIdx) === String(idx) ? 'selected' : ''}" onclick="selectDropdownItem(this, ${idx})">
+          📌 ${currentMenuItems[idx].name}
+        </div>
+      `).join("");
+      topFavHtml += `<div class="group-header">💡 Món đề xuất</div>${defItems}`;
+    }
+
     const searchBoxHtml = `
       <div class="inline-search-box">
-        <input type="text" class="inline-search-input" placeholder="🔍 Gõ tên món để tìm nhanh..." oninput="onInlineSearch(this)" onclick="event.stopPropagation()">
+        <input type="text" class="inline-search-input" placeholder="🔍 Gõ tên món để tìm..." oninput="onInlineSearch(this)" onclick="event.stopPropagation()">
       </div>
     `;
-
-    // Phần 3: Danh sách Toàn bộ Menu
-    const allMenuHtml = buildAllMenuHtml(currentMenuItems, defaultIndices, selectedIdx, "");
 
     return `
       ${zeroHtml}
       <div class="top-fav-section">${topFavHtml}</div>
       ${searchBoxHtml}
-      <div class="all-menu-section">${allMenuHtml}</div>
+      <div class="all-menu-section"></div>
     `;
   }
 
-  // Mở / Đóng bảng chọn món
+  // Khi bấm vào ô Order của từng người: Nếu đang là "-- Không gọi --", tự động chọn luôn món đặt nhiều nhất (hoặc đề xuất)
   function toggleDropdown(btnEl) {
-    const panel = btnEl.nextElementSibling;
+    const dd = btnEl.closest(".custom-dropdown");
+    let panel = btnEl.nextElementSibling;
     const isOpen = panel.classList.contains("open");
 
-    // Đóng tất cả các bảng khác đang mở
     document.querySelectorAll(".dropdown-panel.open").forEach(p => {
       p.classList.remove("open");
       p.previousElementSibling.classList.remove("active");
     });
 
     if (!isOpen) {
+      // TỰ ĐỘNG SELECT MÓN ĐẶT NHIỀU NHẤT KHI CLICK MỞ Ô ORDER CÁ NHÂN
+      if (dd.id !== "quick-dropdown" && String(dd.dataset.value) === "0") {
+        const currentShop = menuSelect.value;
+        const currentMenuItems = MENUS[currentShop] || [];
+        const member = dd.dataset.member;
+        const localFavs = getLocalFavorites(currentShop, member, currentMenuItems);
+        const defaultIndices = getDefaultFavIndices(currentShop, member, currentMenuItems);
+
+        let autoSelectIdx = 0;
+        if (localFavs.length > 0) {
+          autoSelectIdx = localFavs[0].menuIndex; // Ưu tiên số 1: Món đặt nhiều nhất
+        } else if (defaultIndices.length > 0) {
+          autoSelectIdx = defaultIndices[0]; // Ưu tiên số 2: Món đề xuất đầu tiên
+        }
+
+        if (autoSelectIdx > 0) {
+          setDropdownValue(dd, autoSelectIdx);
+          updateSummary();
+          panel = dd.querySelector(".dropdown-panel");
+        }
+      }
+
       panel.classList.add("open");
       btnEl.classList.add("active");
       const searchInput = panel.querySelector(".inline-search-input");
       if (searchInput) {
         searchInput.value = "";
-        onInlineSearch(searchInput); // Reset lại danh sách khi mở
+        if (dd.id === "quick-dropdown") {
+          onQuickSearch(searchInput);
+        } else {
+          onInlineSearch(searchInput);
+        }
         setTimeout(() => searchInput.focus(), 50);
       }
     }
   }
 
-  // Xử lý khi gõ vào ô tìm kiếm bên trong Dropdown
   function onInlineSearch(inputEl) {
     const dd = inputEl.closest(".custom-dropdown");
     const member = dd.dataset.member;
@@ -399,7 +589,6 @@
     const topFavSection = dd.querySelector(".top-fav-section");
     const allMenuSection = dd.querySelector(".all-menu-section");
 
-    // Ẩn tạm phần Đề xuất khi đang gõ tìm kiếm để nhìn kết quả ngay dưới ô input
     if (topFavSection) {
       topFavSection.style.display = kw.trim() !== "" ? "none" : "block";
     }
@@ -407,7 +596,6 @@
     allMenuSection.innerHTML = buildAllMenuHtml(currentMenuItems, defaultIndices, selectedIdx, kw);
   }
 
-  // Xử lý khi click chọn 1 món trong danh sách
   function selectDropdownItem(itemEl, idx) {
     const dd = itemEl.closest(".custom-dropdown");
     setDropdownValue(dd, idx);
@@ -513,7 +701,8 @@
       const row = document.createElement("div");
       row.className = "member-row";
       row.innerHTML = `
-        <span class="member-name"><strong>${member}</strong></span>
+        <input type="checkbox" class="quick-cb" onchange="onMemberQuickCheck(this)" title="Tích để đặt món đang chọn ở trên">
+        <span class="member-name" onclick="onMemberNameClick(this)"><strong>${member}</strong></span>
         <div class="custom-dropdown" data-member="${member}" data-value="0">
           <div class="dropdown-btn" onclick="toggleDropdown(this)">
             <span class="text">${currentMenuItems[0]?.name || "-- Không gọi --"}</span>
@@ -535,6 +724,7 @@
       }
     });
 
+    initQuickSelector();
     updateSummary();
   }
 
@@ -583,6 +773,7 @@
       ? `${summaryLines.join("<br>")}<div style="margin-top:6px; padding-top:4px; border-top:1px dashed #4caf50;">${totalHtml}</div>` 
       : "Chưa chọn món nào";
 
+    syncQuickCheckboxes();
     saveDraft();
   }
 
@@ -638,7 +829,7 @@
 
     const btn = document.getElementById("btn-submit");
     btn.disabled = true;
-    btn.textContent = "⏳ Đang chốt đơn...";
+    btn.textContent = "⏳ AI Thinking ...";
 
     try {
       const res = await fetch(SCRIPT_URL, {
@@ -664,15 +855,15 @@
         localStorage.removeItem(STORAGE_DRAFT_KEY);
 
         renderMemberMenu(true);
-        alert("Đã điền tự động vào Google Sheet thành công!");
+        alert("✅ Đã chốt đơn tự động vào Google Sheet thành công!");
       } else {
-        alert(" Lỗi: " + result.msg);
+        alert("❌ Lỗi: " + result.msg);
       }
     } catch (e) {
-      alert(" Lỗi kết nối: " + e.toString());
+      alert("❌ Lỗi kết nối: " + e.toString());
     } finally {
       btn.disabled = false;
-      btn.textContent = " CHỐT ĐƠN";
+      btn.textContent = "GỬI";
     }
   }
 

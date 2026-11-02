@@ -181,3 +181,15 @@ const DEFAULT_FAVORITES = {
     "Quốc Huy": ["Latte (Honey) - 50k", "Cold Brew Bưởi - 40k", "Cold Brew Đào - 40k", "Cold Brew Mơ Đào - 40k", "Cold Brew Nguyên Vị - 35k"]
   }
 };
+
+const QUICK_DEFAULTS = {
+  "TWB": [
+    "-- Không gọi --",
+    "Latte (S) - 55k",
+    "Americano (M) - 49k"
+  ],
+  "Aribaca": [
+    "-- Không gọi --",
+    "Latte (Honey) - 50k"
+  ]
+};
